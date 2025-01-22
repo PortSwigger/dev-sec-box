@@ -1123,7 +1123,7 @@ public class Core implements DataReceiver {
                     if (Desktop.isDesktopSupported()) {
                         Desktop desktop = Desktop.getDesktop();
                         if (desktop.isSupported(Desktop.Action.BROWSE)) {
-                            URI uri = new URI("https://github.com/taradaidv/dev-sev-box");
+                            URI uri = new URI("https://github.com/taradaidv/dev-sec-box");
                             desktop.browse(uri);
                         }
                     }
