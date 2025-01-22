@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 public class Hook implements BurpExtension, HttpHandler {
     private final Map<Integer, Object[]> requestMap = new ConcurrentHashMap<>();
@@ -115,9 +116,14 @@ public class Hook implements BurpExtension, HttpHandler {
 
                 String modifiedBody = originalBody;
                 for (Map.Entry<String, String> entry : replacements.entrySet()) {
-                    Pattern pattern = Pattern.compile(entry.getKey(), Pattern.CASE_INSENSITIVE);
-                    Matcher matcher = pattern.matcher(modifiedBody);
-                    modifiedBody = matcher.replaceAll(entry.getValue());
+                    try {
+                        Pattern pattern = Pattern.compile(entry.getKey(), Pattern.CASE_INSENSITIVE);
+                        Matcher matcher = pattern.matcher(modifiedBody);
+                        modifiedBody = matcher.replaceAll(entry.getValue());
+                    } catch (PatternSyntaxException e) {
+                        Init.api.logging()
+                                .logToError(Init.PREF + Init.DSB +"Invalid regex pattern: " + entry.getKey() + " - " + e.getMessage());
+                    }
                 }
 
                 ByteArray modifiedBodyBytes = ByteArray.byteArray(modifiedBody.getBytes(StandardCharsets.UTF_8));
