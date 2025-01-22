@@ -65,10 +65,6 @@ gradle wrapper
 ./gradlew clean build --refresh-dependencies
 ```
 
-## Conclusion
-
-DevSecBox is a powerful tool for integrating security into DevSecOps workflows. Its role as an autonomous orchestrator, combined with its robust feature set, makes it an invaluable addition to any security toolkit, helping teams deliver secure software faster and more efficiently.
-
 ## TODO
 There are lots of great things that could be added to this extension.
 
