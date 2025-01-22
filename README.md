@@ -1,7 +1,7 @@
 [![Telegram](https://img.shields.io/badge/Telegram-Message-blue)](https://t.me/taradaidv)
 [![Java](https://img.shields.io/badge/Java-21-orange)](https://www.oracle.com/java/)
 [![Burp Suite](https://img.shields.io/badge/Burp%20Suite-orange)](https://portswigger.net/burp/)
-[![Code Status](https://img.shields.io/badge/Code%20Status-active-brightgreen.svg)](https://github.com/taradaidv/goscout/tree/main)
+[![Code Status](https://img.shields.io/badge/Code%20Status-active-brightgreen.svg)](https://github.com/taradaidv/dev-sec-box/tree/main)
 
 # DevSecBox Extension for Burp Suite
 
