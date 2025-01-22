@@ -1,0 +1,41 @@
+plugins {
+    id 'java'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+group = 'DevSecBox'
+version = '0.1.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compileOnly 'net.portswigger.burp.extensions:montoya-api:2024.12'  
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.0'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+shadowJar {
+    archiveBaseName.set('DevSecBox')
+    archiveVersion.set(version)
+    destinationDirectory.set(file("$buildDir"))
+    archiveFileName.set("DevSecBox-${version}.jar")
+    manifest {
+        attributes(
+            'Main-Class': 'DevSecBox.Initialize'
+        )
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.build {
+    dependsOn shadowJar
+}
