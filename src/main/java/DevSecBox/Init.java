@@ -9,7 +9,7 @@ import burp.api.montoya.MontoyaApi;
 public class Init implements BurpExtension {
     public static String DSB = "DevSecBox ";
     public static String PREF = "□─■ ";
-    private Logging logging;
+    public static Logging logging;
     private Hook Hook;
     public static final OS CURRENTOS = detectOS();
     public static MontoyaApi api;
@@ -18,10 +18,10 @@ public class Init implements BurpExtension {
     @Override
     public void initialize(MontoyaApi api) {
         Init.api = api;
+        logging = api.logging();
         api.extension().setName("DevSecBox");
         Extension extension = api.extension();
         extension.registerUnloadingHandler(new DSBUnloadingHandler());
-        logging = api.logging();
 
         switch (CURRENTOS) {
             case MAC:
@@ -42,7 +42,7 @@ public class Init implements BurpExtension {
 
         Core = new Core();
         Hook = new Hook();
-        Hook.initialize(Init.api);
+        Hook.initialize(api);
     }
 
     private static OS detectOS() {
@@ -58,6 +58,10 @@ public class Init implements BurpExtension {
         }
     }
 
+    public enum OS {
+        MAC, WINDOWS, LINUX, UNKNOWN
+    }
+
     public class DSBUnloadingHandler implements ExtensionUnloadingHandler {
         @Override
         public void extensionUnloaded() {
@@ -68,7 +72,4 @@ public class Init implements BurpExtension {
         }
     }
 
-    public enum OS {
-        MAC, WINDOWS, LINUX, UNKNOWN
-    }
 }

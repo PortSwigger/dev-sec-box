@@ -5,6 +5,7 @@ import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import burp.api.montoya.scanner.audit.issues.AuditIssueConfidence;
 import burp.api.montoya.scanner.audit.issues.AuditIssueSeverity;
+import burp.api.montoya.ui.UserInterface;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ComponentAdapter;
@@ -44,6 +45,7 @@ public class Core implements DataReceiver {
         SwingUtilities.invokeLater(() -> {
             Init.api.userInterface().registerSuiteTab("DevSecBox", WorkflowPanel);
             Init.api.userInterface().registerContextMenuItemsProvider(new MenuProvider());
+            WorkflowPanel.initUI(Init.api.userInterface());
             Init.api.logging().logToOutput(Init.PREF + Init.DSB + "orchestrator loaded - " + Linker.WORKFLOWS[1]);
         });
     }
@@ -70,14 +72,45 @@ public class Core implements DataReceiver {
         private double CROP = 2.8;
         private static final int WIDTH = 250;
         private static final int HEIGHT = 200;
-        private final int MINSIZE = 80;
+        private static final int MINSIZE = 80;
         private JButton zoomIn;
         private JButton zoomOut;
-        public JLayeredPane g2dLayer;
-        private JPanel uiPanel;
         private JToggleButton liveSwitch;
         private Point initialClick;
         private boolean dragging = false;
+        private JDesktopPane desktopPane = new JDesktopPane();
+        public JDesktopPane g2dLayer = new JDesktopPane() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                for (Linker.Connection connection : Linker.connections) {
+                    Linker.draw(g2d, connection);
+                }
+                if (backgroundImage != null) {
+                    int panelWidth = getWidth();
+                    int panelHeight = getHeight();
+                    double scale = Math.min(panelWidth, panelHeight) * 0.4
+                            / Math.min(backgroundImage.getWidth(), backgroundImage.getHeight());
+
+                    int newWidth = (int) (backgroundImage.getWidth() * scale);
+                    int newHeight = (int) (backgroundImage.getHeight() * scale);
+
+                    int x = (panelWidth - newWidth) / 2;
+                    int y = (panelHeight - newHeight) / 2;
+
+                    g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                            RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                    g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                    g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2d.drawImage(backgroundImage, x, y, newWidth, newHeight, this);
+
+                    for (Linker.Connection connection : Linker.connections) {
+                        Linker.draw(g2d, connection);
+                    }
+                }
+            }
+        };
 
         public void setLiveSwitchState(boolean state) {
             liveSwitch.setSelected(state);
@@ -87,22 +120,8 @@ public class Core implements DataReceiver {
             return Linker.spoofMap;
         }
 
-        public WorkflowPanel() {
-            initUI();
-        }
-
-        public void initUI() {
+        public void initUI(UserInterface userInterface) {
             this.setLayout(new BorderLayout());
-            this.g2dLayer = new JLayeredPane() {
-                @Override
-                protected void paintComponent(Graphics g) {
-                    super.paintComponent(g);
-                    Graphics2D g2d = (Graphics2D) g;
-                    for (Linker.Connection connection : Linker.connections) {
-                        Linker.draw(g2d, connection);
-                    }
-                }
-            };
 
             g2dLayer.addMouseListener(new MouseAdapter() {
                 @Override
@@ -140,7 +159,6 @@ public class Core implements DataReceiver {
                 }
             });
 
-            uiPanel = new JPanel();
             zoomIn = new JButton("+");
             zoomOut = new JButton("-");
             zoomIn.addActionListener(e -> {
@@ -157,7 +175,6 @@ public class Core implements DataReceiver {
 
             zoomIn.setVisible(false);
             zoomOut.setVisible(false);
-
             backgroundImage = loadAndRender();
             liveSwitch = new JToggleButton("Live Workflow");
             liveSwitch.addItemListener(e -> {
@@ -178,11 +195,15 @@ public class Core implements DataReceiver {
                     Linker.СhainTaskList.get(0).setTitle(Linker.WORKFLOWS[1]);
                 }
             });
+            zoomIn.setBounds(10, 10, 50, 30);
+            zoomOut.setBounds(70, 10, 50, 30);
+            liveSwitch.setBounds(130, 10, 100, 30);
 
-            uiPanel.add(zoomIn);
-            uiPanel.add(liveSwitch);
-            uiPanel.add(zoomOut);
-            this.add(uiPanel, BorderLayout.SOUTH);
+            g2dLayer.add(zoomIn);
+            g2dLayer.add(liveSwitch);
+            g2dLayer.add(zoomOut);
+
+            this.add(desktopPane, BorderLayout.CENTER);
             this.add(g2dLayer, BorderLayout.CENTER);
             revalidate();
             repaint();
@@ -196,33 +217,6 @@ public class Core implements DataReceiver {
             } catch (IOException e) {
             }
             return null;
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-            if (backgroundImage != null) {
-                int panelWidth = getWidth();
-                int panelHeight = getHeight();
-                double scale = Math.min(panelWidth, panelHeight) * 0.4
-                        / Math.min(backgroundImage.getWidth(), backgroundImage.getHeight());
-
-                int newWidth = (int) (backgroundImage.getWidth() * scale);
-                int newHeight = (int) (backgroundImage.getHeight() * scale);
-
-                int x = (panelWidth - newWidth) / 2;
-                int y = (panelHeight - newHeight) / 2;
-
-                Graphics2D g2d = (Graphics2D) g;
-                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2d.drawImage(backgroundImage, x, y, newWidth, newHeight, this);
-
-                for (Linker.Connection connection : Linker.connections) {
-                    Linker.draw(g2d, connection);
-                }
-            }
         }
 
         public void clearAllComponents() {
@@ -242,7 +236,7 @@ public class Core implements DataReceiver {
             for (MouseMotionListener listener : getMouseMotionListeners()) {
                 removeMouseMotionListener(listener);
             }
-            uiPanel.removeAll();
+            desktopPane.removeAll();
             zoomOut.setEnabled(true);
             removeAll();
         }
@@ -289,8 +283,8 @@ public class Core implements DataReceiver {
         }
 
         public class SwingUtils {
-            public static JInternalFrame suiteFrame(String name, int x, int y, int width, int height) {
-                JInternalFrame frame = new JInternalFrame(name, false, true, true, false) {
+            public static JInternalFrame suiteFrame(String title, int x, int y, int width, int height) {
+                JInternalFrame frame = new JInternalFrame(title, true, true, true, true) {
                     @Override
                     public void setFrameIcon(Icon icon) {
                     }
@@ -486,7 +480,7 @@ public class Core implements DataReceiver {
                 tabbedPanel.addTab("booster", settingsPanel);
                 tabbedPanel.addTab("notes", notesPanel);
                 frame.getContentPane().add(tabbedPanel);
-                g2dLayer.add(frame, JLayeredPane.DEFAULT_LAYER);
+                g2dLayer.add(frame, JDesktopPane.DEFAULT_LAYER);
                 globalButtonState.updateStates();
                 Hook.Start();
             });
@@ -636,7 +630,7 @@ public class Core implements DataReceiver {
             tabbedPanel.addTab("out", outPanel);
             tabbedPanel.addTab("notes", notesPanel);
             frame.getContentPane().add(tabbedPanel);
-            g2dLayer.add(frame, JLayeredPane.DEFAULT_LAYER);
+            g2dLayer.add(frame, JDesktopPane.DEFAULT_LAYER);
             Linker.addConnection(fromFrame, frame);
             Linker.catcherListener(frame, inArea, outArea, defenderArea, actualStateManager);
             actualStateManager.updateStates();
@@ -744,7 +738,7 @@ public class Core implements DataReceiver {
                     }
 
                     String requestText = requestBuilder.toString();
-                    Init.api.logging().logToOutput(Init.PREF + Init.DSB + "Request Text: " + requestText);
+                    Init.logging.logToOutput(Init.PREF + Init.DSB + "Request Text: " + requestText);
 
                     new SwingWorker<HttpRequestResponse, Void>() {
                         @Override
@@ -777,7 +771,7 @@ public class Core implements DataReceiver {
             });
 
             frame.getContentPane().add(tabbedPanel);
-            g2dLayer.add(frame, JLayeredPane.DEFAULT_LAYER);
+            g2dLayer.add(frame, JDesktopPane.DEFAULT_LAYER);
             Linker.addConnection(previousFrame, frame);
         }
 
@@ -862,7 +856,7 @@ public class Core implements DataReceiver {
             tabbedPanel.addTab("example", jsonPanel);
 
             frame.getContentPane().add(tabbedPanel);
-            g2dLayer.add(frame, JLayeredPane.DEFAULT_LAYER);
+            g2dLayer.add(frame, JDesktopPane.DEFAULT_LAYER);
             Linker.addConnection(previousFrame, frame);
             Issue.Audit.jsonListener(frame);
             revalidate();
@@ -964,7 +958,7 @@ public class Core implements DataReceiver {
             tabbedPanel.addTab("notes", notesPanel);
 
             frame.getContentPane().add(tabbedPanel);
-            g2dLayer.add(frame, JLayeredPane.DEFAULT_LAYER);
+            g2dLayer.add(frame, JDesktopPane.DEFAULT_LAYER);
             Linker.addConnection(Linker.СhainTaskList.get(0), frame);
             frame.addInternalFrameListener(new InternalFrameAdapter() {
                 @Override
