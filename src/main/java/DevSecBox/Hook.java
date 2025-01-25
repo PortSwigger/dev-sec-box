@@ -29,15 +29,10 @@ public class Hook implements BurpExtension, HttpHandler {
     private final Map<Integer, Object[]> requestMap = new ConcurrentHashMap<>();
     private int currentRequestId = 1;
     private static final int MAX_REQUEST_ID = Integer.MAX_VALUE - 1;
-    private static ExecutorService executorService;
-    private Map<String, String> replacements;
+    private static ExecutorService executorService = Executors.newFixedThreadPool(1);;
+    private Map<String, String> replacements = Init.Core.WorkflowPanel.getReplacements();;
     private List<String> nonModifiableContentTypes;
     public static volatile boolean isActive = true;
-
-    public Hook() {
-        executorService = Executors.newFixedThreadPool(1);
-        this.replacements = Init.Core.WorkflowPanel.getReplacements();
-    }
 
     @Override
     public void initialize(MontoyaApi api) {
@@ -122,7 +117,8 @@ public class Hook implements BurpExtension, HttpHandler {
                         modifiedBody = matcher.replaceAll(entry.getValue());
                     } catch (PatternSyntaxException e) {
                         Init.api.logging()
-                                .logToError(Init.PREF + Init.DSB +"Invalid regex pattern: " + entry.getKey() + " - " + e.getMessage());
+                                .logToError(Init.PREF + Init.DSB + "Invalid regex pattern: " + entry.getKey() + " - "
+                                        + e.getMessage());
                     }
                 }
 

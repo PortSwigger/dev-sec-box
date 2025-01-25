@@ -15,6 +15,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.image.BufferedImage;
+import java.beans.PropertyVetoException;
 import java.io.InputStream;
 import java.io.IOException;
 import java.net.URI;
@@ -205,6 +206,7 @@ public class Core implements DataReceiver {
 
             this.add(desktopPane, BorderLayout.CENTER);
             this.add(g2dLayer, BorderLayout.CENTER);
+            liveSwitch.doClick();
             revalidate();
             repaint();
         }
@@ -483,6 +485,8 @@ public class Core implements DataReceiver {
                 g2dLayer.add(frame, JDesktopPane.DEFAULT_LAYER);
                 globalButtonState.updateStates();
                 Hook.Start();
+                catcherTask(Linker.TITLEcatcher, 10, 300, frame);
+                SpooferTask(Linker.TITLEspoofer, 400, 400);
             });
         }
 
@@ -1013,6 +1017,42 @@ public class Core implements DataReceiver {
                             }
                         }
                     }
+                }
+
+                @Override
+                public void internalFrameIconified(InternalFrameEvent e) {
+                    int index = Linker.СhainTaskList.indexOf(frame);
+                    List<JInternalFrame> framesToHide = new ArrayList<>(
+                            Linker.СhainTaskList.subList(0, index));
+                    for (JInternalFrame component : framesToHide) {
+                        try {
+                            component.setIcon(true);
+                            Linker.connections.stream()
+                                    .filter(connection -> connection.involves(component))
+                                    .forEach(connection -> connection.setVisible(false));
+                        } catch (PropertyVetoException ex) {
+                            Init.api.logging().logToOutput("Error iconifying frame: " + ex.getMessage());
+                        }
+                    }
+                    frame.repaint();
+                }
+
+                @Override
+                public void internalFrameDeiconified(InternalFrameEvent e) {
+                    int index = Linker.СhainTaskList.indexOf(frame);
+                    List<JInternalFrame> framesToShow = new ArrayList<>(
+                            Linker.СhainTaskList.subList(index, Linker.СhainTaskList.size()));
+                    for (JInternalFrame component : framesToShow) {
+                        try {
+                            component.setIcon(false);
+                            Linker.connections.stream()
+                                    .filter(connection -> connection.involves(component))
+                                    .forEach(connection -> connection.setVisible(true));
+                        } catch (PropertyVetoException ex) {
+                            Init.api.logging().logToOutput("Error deiconifying frame: " + ex.getMessage());
+                        }
+                    }
+                    frame.repaint();
                 }
             });
             frame.addComponentListener(new ComponentAdapter() {

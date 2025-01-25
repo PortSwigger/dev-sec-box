@@ -70,7 +70,7 @@ class Issue {
             Audit.deregister();
             Audit.requestContextMap.forEach((id, future) -> future.complete(null));
             Audit.requestContextMap.clear();
-            Audit.requestIdCounter.set(1); 
+            Audit.requestIdCounter.set(1);
 
             JInternalFrame solverFrame = Linker.СhainTaskList.stream()
                     .filter(frame -> Linker.TITLEsolver.equals(frame.getTitle()))
@@ -872,10 +872,12 @@ class Linker {
     public static class Connection {
         private JInternalFrame from;
         private JInternalFrame to;
+        private boolean visible;
 
         public Connection(JInternalFrame from, JInternalFrame to) {
             this.from = from;
             this.to = to;
+            this.visible = true;
         }
 
         public JInternalFrame getFrom() {
@@ -884,6 +886,19 @@ class Linker {
 
         public JInternalFrame getTo() {
             return to;
+        }
+
+        public boolean involves(JInternalFrame frame) {
+            return from.equals(frame) || to.equals(frame);
+        }
+
+        public void setVisible(boolean visible) {
+            this.visible = visible;
+
+        }
+
+        public boolean isVisible() {
+            return visible;
         }
     }
 
@@ -915,6 +930,7 @@ class Linker {
             }
             if (currentIndex == 0) {
                 Init.Core.WorkflowPanel.clearAllComponents();
+                Init.Core.WorkflowPanel.initUI(Init.api.userInterface());
             }
             Linker.СhainTaskList.remove(frame);
             Issue.liveIssueOFF();
@@ -929,6 +945,9 @@ class Linker {
     public static void draw(Graphics2D g2d, Linker.Connection connection) {
         JInternalFrame from = connection.getFrom();
         JInternalFrame to = connection.getTo();
+        if (!connection.isVisible()) {
+            return;
+        }
         if (from.isVisible() && to.isVisible()) {
             Point fromCenter = new Point(from.getX() + from.getWidth() / 2, from.getY() + from.getHeight() / 2);
             Point toCenter = new Point(to.getX() + to.getWidth() / 2, to.getY() + to.getHeight() / 2);
