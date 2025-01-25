@@ -949,40 +949,36 @@ class Linker {
             return;
         }
         boolean isFirstFrameIconified = Linker.СhainTaskList.get(0).isIcon();
+        Point fromCenter = new Point(from.getX() + from.getWidth() / 2, from.getY() + from.getHeight() / 2);
+        Point toCenter = new Point(to.getX() + to.getWidth() / 2, to.getY() + to.getHeight() / 2);
+
         if (from.isVisible() && to.isVisible()) {
-            Point fromCenter = new Point(from.getX() + from.getWidth() / 2, from.getY() + from.getHeight() / 2);
-            Point toCenter = new Point(to.getX() + to.getWidth() / 2, to.getY() + to.getHeight() / 2);
-            Point fromEdge = getEdgePoint(from, fromCenter, toCenter);
             Point toEdge = getEdgePoint(to, toCenter, fromCenter);
-            double totalDistance = fromEdge.distance(toEdge);
+            double totalDistance = fromCenter.distance(toEdge);
             double shorteningFactor = LINE_SHORTENING_PIXELS / totalDistance;
-            int dx = toEdge.x - fromEdge.x;
-            int dy = toEdge.y - fromEdge.y;
+            int dx = toEdge.x - fromCenter.x;
+            int dy = toEdge.y - fromCenter.y;
+            int squareSize = 13;
             Point shortenedToEdge = new Point(
                     toEdge.x - (int) (dx * shorteningFactor),
                     toEdge.y - (int) (dy * shorteningFactor));
-
-            if (isSpooferTask(from) || isSpooferTask(to)) {
+            g2d.setStroke(
+                    new BasicStroke(3, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 0,
+                            new float[] { 0, 10 },
+                            5));
+            if (isSpooferTask(to)) {
                 g2d.setColor(Color.DARK_GRAY);
-                g2d.setStroke(
-                        new BasicStroke(3, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 0,
-                                new float[] { 0, 10 },
-                                5));
-                g2d.drawLine(fromEdge.x, fromEdge.y, shortenedToEdge.x, shortenedToEdge.y);
-                drawArrow(g2d, toEdge, fromEdge);
-                drawArrow(g2d, fromEdge, toEdge);
+                g2d.drawLine(fromCenter.x, fromCenter.y, shortenedToEdge.x, shortenedToEdge.y);
+                g2d.fillRect(fromCenter.x - squareSize / 2, fromCenter.y - squareSize / 2, squareSize, squareSize);
+                g2d.fillRect(toEdge.x - squareSize / 2, toEdge.y - squareSize / 2, squareSize, squareSize);
+
             } else {
                 g2d.setColor(Color.GRAY);
-                g2d.setStroke(
-                        new BasicStroke(3, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 0,
-                                new float[] { 0, 10 },
-                                0));
-                g2d.drawLine(fromEdge.x, fromEdge.y, shortenedToEdge.x, shortenedToEdge.y);
+                g2d.drawLine(fromCenter.x, fromCenter.y, shortenedToEdge.x, shortenedToEdge.y);
                 if (isFirstFrameIconified) {
-                    int squareSize = 13;
-                    g2d.fillRect(fromEdge.x - squareSize / 2, fromEdge.y - squareSize / 2, squareSize, squareSize);
+                    g2d.fillRect(fromCenter.x - squareSize / 2, fromCenter.y - squareSize / 2, squareSize, squareSize);
                 }
-                drawArrow(g2d, toEdge, fromEdge);
+                drawArrow(g2d, toEdge, fromCenter);
             }
         }
     }

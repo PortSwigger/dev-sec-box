@@ -123,8 +123,7 @@ public class Core implements DataReceiver {
 
         public void initUI(UserInterface userInterface) {
             this.setLayout(new BorderLayout());
-
-            g2dLayer.addMouseListener(new MouseAdapter() {
+            this.addMouseListener(new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent e) {
                     if (SwingUtilities.isLeftMouseButton(e)) {
@@ -141,7 +140,7 @@ public class Core implements DataReceiver {
                 }
             });
 
-            g2dLayer.addMouseMotionListener(new MouseAdapter() {
+            this.addMouseMotionListener(new MouseAdapter() {
                 @Override
                 public void mouseDragged(MouseEvent e) {
                     if (dragging) {
@@ -158,6 +157,7 @@ public class Core implements DataReceiver {
                         g2dLayer.repaint();
                     }
                 }
+
             });
 
             zoomIn = new JButton("+");
@@ -196,14 +196,20 @@ public class Core implements DataReceiver {
                     Linker.СhainTaskList.get(0).setTitle(Linker.WORKFLOWS[1]);
                 }
             });
-            zoomIn.setBounds(10, 10, 50, 30);
-            zoomOut.setBounds(70, 10, 50, 30);
-            liveSwitch.setBounds(130, 10, 100, 30);
 
-            g2dLayer.add(zoomIn);
-            g2dLayer.add(liveSwitch);
-            g2dLayer.add(zoomOut);
+            JPanel bottomPanel = new JPanel(new BorderLayout());
 
+            JPanel leftButtonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+            leftButtonPanel.add(liveSwitch);
+
+            JPanel rightButtonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
+            rightButtonPanel.add(zoomIn);
+            rightButtonPanel.add(zoomOut);
+
+            bottomPanel.add(leftButtonPanel, BorderLayout.WEST);
+            bottomPanel.add(rightButtonPanel, BorderLayout.EAST);
+
+            this.add(bottomPanel, BorderLayout.SOUTH);
             this.add(desktopPane, BorderLayout.CENTER);
             this.add(g2dLayer, BorderLayout.CENTER);
             liveSwitch.doClick();
@@ -286,7 +292,7 @@ public class Core implements DataReceiver {
 
         public class SwingUtils {
             public static JInternalFrame suiteFrame(String title, int x, int y, int width, int height) {
-                JInternalFrame frame = new JInternalFrame(title, true, true, true, true) {
+                JInternalFrame frame = new JInternalFrame(title, false, true, true, false) {
                     @Override
                     public void setFrameIcon(Icon icon) {
                     }
