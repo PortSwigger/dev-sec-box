@@ -948,6 +948,7 @@ class Linker {
         if (!connection.isVisible()) {
             return;
         }
+        boolean isFirstFrameIconified = Linker.СhainTaskList.get(0).isIcon();
         if (from.isVisible() && to.isVisible()) {
             Point fromCenter = new Point(from.getX() + from.getWidth() / 2, from.getY() + from.getHeight() / 2);
             Point toCenter = new Point(to.getX() + to.getWidth() / 2, to.getY() + to.getHeight() / 2);
@@ -977,6 +978,10 @@ class Linker {
                                 new float[] { 0, 10 },
                                 0));
                 g2d.drawLine(fromEdge.x, fromEdge.y, shortenedToEdge.x, shortenedToEdge.y);
+                if (isFirstFrameIconified) {
+                    int squareSize = 13;
+                    g2d.fillRect(fromEdge.x - squareSize / 2, fromEdge.y - squareSize / 2, squareSize, squareSize);
+                }
                 drawArrow(g2d, toEdge, fromEdge);
             }
         }
