@@ -8,6 +8,7 @@ import burp.api.montoya.http.handler.RequestToBeSentAction;
 import burp.api.montoya.http.handler.ResponseReceivedAction;
 import burp.api.montoya.http.message.HttpHeader;
 import burp.api.montoya.http.message.responses.HttpResponse;
+import burp.api.montoya.MontoyaApi;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,6 +21,7 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 public class Hook implements HttpHandler {
+    private final MontoyaApi api;
     private final Map<Integer, Object[]> requestMap = new ConcurrentHashMap<>();
     private int currentRequestId = 1;
     private static final int MAX_REQUEST_ID = Integer.MAX_VALUE - 1;
@@ -27,6 +29,10 @@ public class Hook implements HttpHandler {
     private Map<String, String> replacements = Init.Core.WorkflowPanel.getReplacements();
     List<String> nonModifiableContentTypes;
     public static volatile boolean isActive = true;
+
+    public Hook(MontoyaApi api) {
+        this.api = api;
+    }
 
     @Override
     public RequestToBeSentAction handleHttpRequestToBeSent(HttpRequestToBeSent httpRequestToBeSent) {
@@ -87,7 +93,7 @@ public class Hook implements HttpHandler {
                         Matcher matcher = pattern.matcher(modifiedBody);
                         modifiedBody = matcher.replaceAll(entry.getValue());
                     } catch (PatternSyntaxException e) {
-                        Init.api.logging()
+                        api.logging()
                                 .logToError(Init.PREF + Init.DSB + "Invalid regex pattern: " + entry.getKey() + " - "
                                         + e.getMessage());
                     }

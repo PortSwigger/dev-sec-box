@@ -748,7 +748,7 @@ public class Core implements DataReceiver {
                     }
 
                     String requestText = requestBuilder.toString();
-                    Init.logging.logToOutput(Init.PREF + Init.DSB + "Request Text: " + requestText);
+                    Init.api.logging().logToOutput(Init.PREF + Init.DSB + "Request Text: " + requestText);
 
                     new SwingWorker<HttpRequestResponse, Void>() {
                         @Override

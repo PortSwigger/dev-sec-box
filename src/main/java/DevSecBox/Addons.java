@@ -59,7 +59,7 @@ class Issue {
         if (!liveIssue) {
             Issue.liveIssue = true;
             new Issue.Audit();
-            Init.logging.logToOutput(Init.PREF + Init.DSB + "Live Audit has been loaded.");
+            Init.api.logging().logToOutput(Init.PREF + Init.DSB + "Live Audit has been loaded.");
         }
 
     }
@@ -84,7 +84,7 @@ class Issue {
 
             Init.Core.WorkflowPanel.revalidate();
             Init.Core.WorkflowPanel.repaint();
-            Init.logging.logToOutput(Init.PREF + Init.DSB + "Live Audit has been unloaded.");
+            Init.api.logging().logToOutput(Init.PREF + Init.DSB + "Live Audit has been unloaded.");
         }
 
     }
@@ -225,7 +225,7 @@ class Issue {
                     if (future != null) {
                         future.complete(solverData);
                     } else {
-                        Init.logging
+                        Init.api.logging()
                                 .logToError(Init.PREF + Init.DSB + "no matching solverIssue: " + DataObj);
                     }
                 }
@@ -1112,7 +1112,7 @@ class Linker {
                 try {
                     acquired = processSemaphore.tryAcquire(Linker.acquireTime, TimeUnit.SECONDS);
                     if (!acquired) {
-                        Init.logging.logToOutput(
+                        Init.api.logging().logToOutput(
                                 Init.PREF + Init.DSB + "timeout acquire semaphore. infectionping execution.");
                         return null;
                     }
@@ -1137,7 +1137,7 @@ class Linker {
                             ClearNext(null, nextFrame, DataObj);
                             String truncatedCommand = command.length() > 100 ? command.substring(0, 100) + " ..."
                                     : command;
-                            Init.logging.logToOutput(
+                            Init.api.logging().logToOutput(
                                     Init.PREF + Init.DSB + "process \"" + truncatedCommand
                                             + "\" terminated due to timeout.");
                             return null;
@@ -1164,7 +1164,7 @@ class Linker {
                     }
                 } catch (IOException ex) {
                     ClearNext(null, nextFrame, DataObj);
-                    Init.logging.logToError(
+                    Init.api.logging().logToError(
                             Init.PREF + Init.DSB + "error executing command: " + ex.getMessage());
                 } finally {
                     if (acquired) {
