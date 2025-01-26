@@ -41,15 +41,14 @@ interface DataReceiver {
 
 public class Core implements DataReceiver {
     private final MontoyaApi api;
-    public final WorkflowPanel workflowPanel = new WorkflowPanel();
-    public final ButtonState globalButtonState = new ButtonState();
+    public final WorkflowPanel workflowPanel;
+    public static ButtonState globalButtonState;
 
     public Core(MontoyaApi api) {
         this.api = api;
-        api.userInterface().registerSuiteTab("DevSecBox", workflowPanel);
-        api.userInterface().registerContextMenuItemsProvider(new MenuProvider());
-        workflowPanel.initUI(api.userInterface());
-        api.logging().logToOutput(Init.PREF + Init.DSB + "orchestrator loaded - " + Linker.WORKFLOWS[1]);
+        workflowPanel = new WorkflowPanel(this);
+        globalButtonState = new ButtonState();
+        workflowPanel.initUI(api.userInterface(), this);
     }
 
     @Override
@@ -64,6 +63,7 @@ public class Core implements DataReceiver {
     }
 
     public class WorkflowPanel extends JPanel {
+        private final Core core;
         private boolean editMode = false;
         private BufferedImage backgroundImage;
         private double SCALE = 1.0;
@@ -77,58 +77,68 @@ public class Core implements DataReceiver {
         private Point initialClick;
         private boolean dragging = false;
         private JDesktopPane desktopPane = new JDesktopPane();
-        public JDesktopPane g2dLayer = new JDesktopPane() {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2d = (Graphics2D) g;
-                for (Linker.Connection connection : Linker.connections) {
-                    Linker.draw(g2d, connection);
-                }
-                if (backgroundImage != null) {
-                    int panelWidth = getWidth();
-                    int panelHeight = getHeight();
-                    double scale = Math.min(panelWidth, panelHeight) * 0.5
-                            / Math.min(backgroundImage.getWidth(), backgroundImage.getHeight());
+        public JDesktopPane g2dLayer;
 
-                    int newWidth = (int) (backgroundImage.getWidth() * scale);
-                    int newHeight = (int) (backgroundImage.getHeight() * scale);
-
-                    int x = (panelWidth - newWidth) / 2;
-                    int y = (panelHeight - newHeight) / 2;
-
-                    g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
-                            RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                    g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-                    g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    g2d.drawImage(backgroundImage, x, y, newWidth, newHeight, this);
-
-                    for (Linker.Connection connection : Linker.connections) {
-                        Linker.draw(g2d, connection);
-                    }
-                }
-            }
-        };
+        public WorkflowPanel(Core core) {
+            this.core = core;
+            initializeG2dLayer();
+        }
 
         public void setLiveSwitchState(boolean state) {
             liveSwitch.setSelected(state);
         }
 
+        private void initializeG2dLayer() {
+            g2dLayer = new JDesktopPane() {
+                @Override
+                protected void paintComponent(Graphics g) {
+                    super.paintComponent(g);
+                    Graphics2D g2d = (Graphics2D) g;
+                    for (Linker.Connection connection : Linker.connections) {
+                        Linker.draw(g2d, connection);
+                    }
+                    if (backgroundImage != null) {
+                        int panelWidth = getWidth();
+                        int panelHeight = getHeight();
+                        double scale = Math.min(panelWidth, panelHeight) * 0.5
+                                / Math.min(backgroundImage.getWidth(), backgroundImage.getHeight());
+
+                        int newWidth = (int) (backgroundImage.getWidth() * scale);
+                        int newHeight = (int) (backgroundImage.getHeight() * scale);
+
+                        int x = (panelWidth - newWidth) / 2;
+                        int y = (panelHeight - newHeight) / 2;
+
+                        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                                RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                        g2d.drawImage(backgroundImage, x, y, newWidth, newHeight, this);
+
+                        for (Linker.Connection connection : Linker.connections) {
+                            Linker.draw(g2d, connection);
+                        }
+                    }
+                }
+            };
+        }
+
         public class ApiFactory {
             private static Hook hook;
 
-            public static void initialize(MontoyaApi api) {
+            public static void initialize(MontoyaApi api, Core core) {
                 if (hook == null) {
-                    Linker.setApi(api);
-                    Issue.setApi(api);
-                    hook = new Hook(api);
+                    Linker.setApi(api, core);
+                    Issue.setApi(api, core);
+                    hook = new Hook(api, core);
+                    api.userInterface().registerSuiteTab("DevSecBox", core.workflowPanel);
+                    api.userInterface().registerContextMenuItemsProvider(hook);
                     api.http().registerHttpHandler(hook);
                 }
             }
         }
 
-        public void initUI(UserInterface userInterface) {
-            ApiFactory.initialize(api);
+        public void initUI(UserInterface userInterface, Core core) {
             this.setLayout(new BorderLayout());
             this.addMouseListener(new MouseAdapter() {
                 @Override
@@ -220,6 +230,7 @@ public class Core implements DataReceiver {
             this.add(bottomPanel, BorderLayout.SOUTH);
             this.add(desktopPane, BorderLayout.CENTER);
             this.add(g2dLayer, BorderLayout.CENTER);
+            ApiFactory.initialize(api, core);
             revalidate();
             repaint();
         }
@@ -235,25 +246,35 @@ public class Core implements DataReceiver {
         }
 
         public void clearAllComponents() {
-            Hook.Shutdown();
-            globalButtonState.deactivateAllButtons();
+            Hook.Shutdown(api);
+
+            editMode = false;
+            backgroundImage = null;
             SCALE = 1.0;
+            CROP = 2.8;
+            initialClick = null;
+            dragging = false;
+
+            zoomIn.setVisible(false);
+            zoomOut.setVisible(false);
+            liveSwitch.setSelected(false);
+            liveSwitch.setEnabled(true);
+
+            desktopPane.removeAll();
             g2dLayer.removeAll();
+
+            Core.globalButtonState.deactivateAllButtons();
             Linker.connections.clear();
             Linker.frameListenerMap.clear();
             Linker.frameProcessMap.clear();
             Linker.IsolatedTaskList.clear();
             Linker.СhainTaskList.clear();
-            liveSwitch.setEnabled(true);
-            for (MouseListener listener : getMouseListeners()) {
-                removeMouseListener(listener);
-            }
-            for (MouseMotionListener listener : getMouseMotionListeners()) {
-                removeMouseMotionListener(listener);
-            }
-            desktopPane.removeAll();
-            zoomOut.setEnabled(true);
-            removeAll();
+            Linker.spoofMap.clear();
+
+            workflowPanel.removeAll();
+
+            revalidate();
+            repaint();
         }
 
         private boolean canScaleDown(double newScale) {
@@ -297,8 +318,8 @@ public class Core implements DataReceiver {
             g2dLayer.repaint();
         }
 
-        public class SwingUtils {
-            public static JInternalFrame suiteFrame(String title, int x, int y, int width, int height) {
+        private class SwingUtils {
+            private JInternalFrame suiteFrame(String title, int x, int y, int width, int height) {
                 JInternalFrame frame = new JInternalFrame(title, false, true, true, true) {
                     @Override
                     public void setFrameIcon(Icon icon) {
@@ -327,182 +348,182 @@ public class Core implements DataReceiver {
                         }
                     });
                 }
-                Init.Core.workflowPanel.frameAction(frame);
+                core.workflowPanel.frameAction(frame);
 
                 return frame;
             }
         }
 
-        public void triggerTask(int x, int y) {
-            SwingUtilities.invokeLater(() -> {
-                backgroundImage = null;
-                JInternalFrame frame = SwingUtils.suiteFrame("", x, y, (int) (WIDTH * SCALE), (int) (HEIGHT * SCALE));
-                if (liveSwitch.isSelected()) {
-                    frame.setTitle(Linker.WORKFLOWS[0]);
-                } else {
-                    Issue.liveIssueOFF();
-                    frame.setTitle(Linker.WORKFLOWS[1]);
-                }
+        private void triggerTask(int x, int y) {
+            backgroundImage = null;
+            SwingUtils swingUtils = new SwingUtils();
+            JInternalFrame frame = swingUtils.suiteFrame("", x, y, (int) (WIDTH * SCALE), (int) (HEIGHT * SCALE));
+            if (liveSwitch.isSelected()) {
+                frame.setTitle(Linker.WORKFLOWS[0]);
+            } else {
+                Issue.liveIssueOFF();
+                frame.setTitle(Linker.WORKFLOWS[1]);
+            }
 
-                frame.setMaximizable(false);
-                Linker.СhainTaskList.add(frame);
-                JTabbedPane tabbedPanel = new JTabbedPane();
-                JPanel buttonPanel = new JPanel(new GridBagLayout());
-                GridBagConstraints gbc = new GridBagConstraints();
+            frame.setMaximizable(false);
+            Linker.СhainTaskList.add(frame);
+            JTabbedPane tabbedPanel = new JTabbedPane();
+            JPanel buttonPanel = new JPanel(new GridBagLayout());
+            GridBagConstraints gbc = new GridBagConstraints();
 
-                JPanel layoutPanel = new JPanel();
-                layoutPanel.setBorder(null);
+            JPanel layoutPanel = new JPanel();
+            layoutPanel.setBorder(null);
 
-                JPanel notesPanel = new JPanel(new BorderLayout());
-                JTextArea notesArea = new JTextArea();
-                notesArea.setLineWrap(true);
-                notesArea.setWrapStyleWord(true);
-                JScrollPane notesScrollPane = new JScrollPane(notesArea);
-                notesScrollPane.setBorder(null);
-                notesPanel.add(notesScrollPane, BorderLayout.CENTER);
+            JPanel notesPanel = new JPanel(new BorderLayout());
+            JTextArea notesArea = new JTextArea();
+            notesArea.setLineWrap(true);
+            notesArea.setWrapStyleWord(true);
+            JScrollPane notesScrollPane = new JScrollPane(notesArea);
+            notesScrollPane.setBorder(null);
+            notesPanel.add(notesScrollPane, BorderLayout.CENTER);
 
-                JSpinner semaphoreSpinner = new JSpinner(
-                        new SpinnerNumberModel(Linker.maxConcurrentProcesses, 1, 5, 1));
-                semaphoreSpinner.addChangeListener(e -> {
-                    int newMax = (int) semaphoreSpinner.getValue();
-                    Linker.updateMaxConcurrentProcesses(newMax);
-                });
-
-                JSpinner schedulerSpinner = new JSpinner(new SpinnerNumberModel(Linker.schedulerThreadCount, 1, 5, 1));
-                schedulerSpinner.addChangeListener(e -> {
-                    int newThreadCount = (int) schedulerSpinner.getValue();
-                    Linker.schedulerThreadCount = newThreadCount;
-                    Linker.reinitializeScheduler();
-                });
-
-                JSpinner timeoutSpinner = new JSpinner(
-                        new SpinnerNumberModel(Linker.schedulerTimeout, 1, Integer.MAX_VALUE, 5));
-                timeoutSpinner.addChangeListener(e -> {
-                    int selectedTimeout = (int) timeoutSpinner.getValue();
-                    Linker.updateSchedulerTimeout(selectedTimeout);
-                });
-
-                JSpinner acquireTimeSpinner = new JSpinner(
-                        new SpinnerNumberModel(Linker.acquireTime, 1, Integer.MAX_VALUE, 5));
-                acquireTimeSpinner.addChangeListener(e -> {
-                    int newAcquireTime = (int) acquireTimeSpinner.getValue();
-                    Linker.acquireTime = newAcquireTime;
-                });
-
-                JComponent editor = semaphoreSpinner.getEditor();
-                JFormattedTextField textField = ((JSpinner.DefaultEditor) editor).getTextField();
-                textField.setPreferredSize(new Dimension(30, textField.getPreferredSize().height));
-
-                editor = schedulerSpinner.getEditor();
-                textField = ((JSpinner.DefaultEditor) editor).getTextField();
-                textField.setPreferredSize(new Dimension(30, textField.getPreferredSize().height));
-
-                editor = timeoutSpinner.getEditor();
-                textField = ((JSpinner.DefaultEditor) editor).getTextField();
-                textField.setPreferredSize(new Dimension(30, textField.getPreferredSize().height));
-
-                editor = acquireTimeSpinner.getEditor();
-                textField = ((JSpinner.DefaultEditor) editor).getTextField();
-                textField.setPreferredSize(new Dimension(30, textField.getPreferredSize().height));
-
-                JPanel settingsPanel = new JPanel(new GridBagLayout());
-                GridBagConstraints settingsGbc = new GridBagConstraints();
-                settingsGbc.insets = new Insets(5, 5, 5, 5);
-                settingsGbc.fill = GridBagConstraints.HORIZONTAL;
-                settingsGbc.weightx = 1.0;
-
-                settingsGbc.gridx = 0;
-                settingsGbc.gridy = 0;
-                settingsGbc.anchor = GridBagConstraints.WEST;
-                settingsPanel.add(new JLabel("acquire"), settingsGbc);
-
-                settingsGbc.gridx = 1;
-                settingsGbc.anchor = GridBagConstraints.EAST;
-                settingsPanel.add(acquireTimeSpinner, settingsGbc);
-
-                settingsGbc.gridx = 0;
-                settingsGbc.gridy = 1;
-                settingsGbc.anchor = GridBagConstraints.WEST;
-                settingsPanel.add(new JLabel("timeout"), settingsGbc);
-
-                settingsGbc.gridx = 1;
-                settingsGbc.anchor = GridBagConstraints.EAST;
-                settingsPanel.add(timeoutSpinner, settingsGbc);
-
-                settingsGbc.gridx = 0;
-                settingsGbc.gridy = 2;
-                settingsGbc.anchor = GridBagConstraints.WEST;
-                settingsPanel.add(new JLabel("thds."), settingsGbc);
-
-                settingsGbc.gridx = 1;
-                settingsGbc.anchor = GridBagConstraints.EAST;
-                settingsPanel.add(schedulerSpinner, settingsGbc);
-
-                settingsGbc.gridx = 0;
-                settingsGbc.gridy = 3;
-                settingsGbc.anchor = GridBagConstraints.WEST;
-                settingsPanel.add(new JLabel("conc."), settingsGbc);
-
-                settingsGbc.gridx = 1;
-                settingsGbc.anchor = GridBagConstraints.EAST;
-                settingsPanel.add(semaphoreSpinner, settingsGbc);
-
-                int fixedButtonCount = 7;
-                gbc.insets = new Insets(5, 5, 5, 5);
-                JButton[] buttons = new JButton[fixedButtonCount];
-                for (int i = 0; i < fixedButtonCount; i++) {
-                    JButton button = new JButton(ButtonState.BUTTON_NAMES[i]);
-                    buttons[i] = button;
-                    globalButtonState.addButton(buttons[i], ButtonState.PLACE_HOLDERS[i],
-                            ButtonState.buttonColors[i]);
-                    switch (i) {
-                        case 0:
-                            gbc.gridx = 0;
-                            gbc.gridy = 0;
-                            gbc.gridwidth = 2;
-                            gbc.fill = GridBagConstraints.HORIZONTAL;
-                            break;
-                        case 1:
-                            gbc.gridx = 0;
-                            gbc.gridy = 1;
-                            gbc.gridwidth = 1;
-                            break;
-                        case 2:
-                            gbc.gridx = 1;
-                            gbc.gridy = 1;
-                            break;
-                        case 3:
-                            gbc.gridx = 0;
-                            gbc.gridy = 2;
-                            break;
-                        case 4:
-                            gbc.gridx = 1;
-                            gbc.gridy = 2;
-                            break;
-                        case 5:
-                            gbc.gridx = 0;
-                            gbc.gridy = 3;
-                            break;
-                        case 6:
-                            gbc.gridx = 1;
-                            gbc.gridy = 3;
-                            break;
-                    }
-                    buttonPanel.add(button, gbc);
-                }
-
-                tabbedPanel.addTab("trigger", buttonPanel);
-                tabbedPanel.addTab("booster", settingsPanel);
-                tabbedPanel.addTab("notes", notesPanel);
-                frame.getContentPane().add(tabbedPanel);
-                g2dLayer.add(frame, JDesktopPane.DEFAULT_LAYER);
-                globalButtonState.updateStates();
-                Hook.Start();
+            JSpinner semaphoreSpinner = new JSpinner(
+                    new SpinnerNumberModel(Linker.maxConcurrentProcesses, 1, 5, 1));
+            semaphoreSpinner.addChangeListener(e -> {
+                int newMax = (int) semaphoreSpinner.getValue();
+                Linker.updateMaxConcurrentProcesses(newMax);
             });
+
+            JSpinner schedulerSpinner = new JSpinner(new SpinnerNumberModel(Linker.schedulerThreadCount, 1, 5, 1));
+            schedulerSpinner.addChangeListener(e -> {
+                int newThreadCount = (int) schedulerSpinner.getValue();
+                Linker.schedulerThreadCount = newThreadCount;
+                Linker.reinitializeScheduler();
+            });
+
+            JSpinner timeoutSpinner = new JSpinner(
+                    new SpinnerNumberModel(Linker.schedulerTimeout, 1, Integer.MAX_VALUE, 5));
+            timeoutSpinner.addChangeListener(e -> {
+                int selectedTimeout = (int) timeoutSpinner.getValue();
+                Linker.updateSchedulerTimeout(selectedTimeout);
+            });
+
+            JSpinner acquireTimeSpinner = new JSpinner(
+                    new SpinnerNumberModel(Linker.acquireTime, 1, Integer.MAX_VALUE, 5));
+            acquireTimeSpinner.addChangeListener(e -> {
+                int newAcquireTime = (int) acquireTimeSpinner.getValue();
+                Linker.acquireTime = newAcquireTime;
+            });
+
+            JComponent editor = semaphoreSpinner.getEditor();
+            JFormattedTextField textField = ((JSpinner.DefaultEditor) editor).getTextField();
+            textField.setPreferredSize(new Dimension(30, textField.getPreferredSize().height));
+
+            editor = schedulerSpinner.getEditor();
+            textField = ((JSpinner.DefaultEditor) editor).getTextField();
+            textField.setPreferredSize(new Dimension(30, textField.getPreferredSize().height));
+
+            editor = timeoutSpinner.getEditor();
+            textField = ((JSpinner.DefaultEditor) editor).getTextField();
+            textField.setPreferredSize(new Dimension(30, textField.getPreferredSize().height));
+
+            editor = acquireTimeSpinner.getEditor();
+            textField = ((JSpinner.DefaultEditor) editor).getTextField();
+            textField.setPreferredSize(new Dimension(30, textField.getPreferredSize().height));
+
+            JPanel settingsPanel = new JPanel(new GridBagLayout());
+            GridBagConstraints settingsGbc = new GridBagConstraints();
+            settingsGbc.insets = new Insets(5, 5, 5, 5);
+            settingsGbc.fill = GridBagConstraints.HORIZONTAL;
+            settingsGbc.weightx = 1.0;
+
+            settingsGbc.gridx = 0;
+            settingsGbc.gridy = 0;
+            settingsGbc.anchor = GridBagConstraints.WEST;
+            settingsPanel.add(new JLabel("acquire"), settingsGbc);
+
+            settingsGbc.gridx = 1;
+            settingsGbc.anchor = GridBagConstraints.EAST;
+            settingsPanel.add(acquireTimeSpinner, settingsGbc);
+
+            settingsGbc.gridx = 0;
+            settingsGbc.gridy = 1;
+            settingsGbc.anchor = GridBagConstraints.WEST;
+            settingsPanel.add(new JLabel("timeout"), settingsGbc);
+
+            settingsGbc.gridx = 1;
+            settingsGbc.anchor = GridBagConstraints.EAST;
+            settingsPanel.add(timeoutSpinner, settingsGbc);
+
+            settingsGbc.gridx = 0;
+            settingsGbc.gridy = 2;
+            settingsGbc.anchor = GridBagConstraints.WEST;
+            settingsPanel.add(new JLabel("thds."), settingsGbc);
+
+            settingsGbc.gridx = 1;
+            settingsGbc.anchor = GridBagConstraints.EAST;
+            settingsPanel.add(schedulerSpinner, settingsGbc);
+
+            settingsGbc.gridx = 0;
+            settingsGbc.gridy = 3;
+            settingsGbc.anchor = GridBagConstraints.WEST;
+            settingsPanel.add(new JLabel("conc."), settingsGbc);
+
+            settingsGbc.gridx = 1;
+            settingsGbc.anchor = GridBagConstraints.EAST;
+            settingsPanel.add(semaphoreSpinner, settingsGbc);
+
+            int fixedButtonCount = 7;
+            gbc.insets = new Insets(5, 5, 5, 5);
+            JButton[] buttons = new JButton[fixedButtonCount];
+            for (int i = 0; i < fixedButtonCount; i++) {
+                JButton button = new JButton(ButtonState.BUTTON_NAMES[i]);
+                buttons[i] = button;
+                globalButtonState.addButton(buttons[i], ButtonState.PLACE_HOLDERS[i],
+                        ButtonState.buttonColors[i]);
+                switch (i) {
+                    case 0:
+                        gbc.gridx = 0;
+                        gbc.gridy = 0;
+                        gbc.gridwidth = 2;
+                        gbc.fill = GridBagConstraints.HORIZONTAL;
+                        break;
+                    case 1:
+                        gbc.gridx = 0;
+                        gbc.gridy = 1;
+                        gbc.gridwidth = 1;
+                        break;
+                    case 2:
+                        gbc.gridx = 1;
+                        gbc.gridy = 1;
+                        break;
+                    case 3:
+                        gbc.gridx = 0;
+                        gbc.gridy = 2;
+                        break;
+                    case 4:
+                        gbc.gridx = 1;
+                        gbc.gridy = 2;
+                        break;
+                    case 5:
+                        gbc.gridx = 0;
+                        gbc.gridy = 3;
+                        break;
+                    case 6:
+                        gbc.gridx = 1;
+                        gbc.gridy = 3;
+                        break;
+                }
+                buttonPanel.add(button, gbc);
+            }
+
+            tabbedPanel.addTab("trigger", buttonPanel);
+            tabbedPanel.addTab("booster", settingsPanel);
+            tabbedPanel.addTab("notes", notesPanel);
+            frame.getContentPane().add(tabbedPanel);
+            g2dLayer.add(frame, JDesktopPane.DEFAULT_LAYER);
+            globalButtonState.updateStates();
+            Hook.Start();
         }
 
-        public void catcherTask(String name, int x, int y, JInternalFrame fromFrame) {
-            JInternalFrame frame = SwingUtils.suiteFrame(name, x, y, (int) (WIDTH * SCALE), (int) (HEIGHT * SCALE));
+        private void catcherTask(String name, int x, int y, JInternalFrame fromFrame) {
+            SwingUtils swingUtils = new SwingUtils();
+            JInternalFrame frame = swingUtils.suiteFrame(name, x, y, (int) (WIDTH * SCALE), (int) (HEIGHT * SCALE));
             Linker.СhainTaskList.add(frame);
             JTabbedPane tabbedPanel = new JTabbedPane();
 
@@ -651,8 +672,9 @@ public class Core implements DataReceiver {
             actualStateManager.updateStates();
         }
 
-        public void SenderTask(String name, int x, int y, JInternalFrame previousFrame) {
-            JInternalFrame frame = SwingUtils.suiteFrame(name, x, y, (int) (WIDTH * SCALE), (int) (HEIGHT * SCALE));
+        private void SenderTask(String name, int x, int y, JInternalFrame previousFrame) {
+            SwingUtils swingUtils = new SwingUtils();
+            JInternalFrame frame = swingUtils.suiteFrame(name, x, y, (int) (WIDTH * SCALE), (int) (HEIGHT * SCALE));
             JTabbedPane tabbedPanel = new JTabbedPane();
 
             JPanel mainPanel = new JPanel(new BorderLayout());
@@ -753,7 +775,7 @@ public class Core implements DataReceiver {
                     }
 
                     String requestText = requestBuilder.toString();
-                    api.logging().logToOutput(Init.PREF + Init.DSB + "Request Text: " + requestText);
+                    api.logging().logToOutput(Init.DSB + "Request Text: " + requestText);
 
                     new SwingWorker<HttpRequestResponse, Void>() {
                         @Override
@@ -776,12 +798,12 @@ public class Core implements DataReceiver {
                                     responseArea.setText(responseDetails.toString());
                                 });
                             } catch (Exception ex) {
-                                throw new RuntimeException("Error processing HTTP response", ex);
+                                throw new RuntimeException("error processing HTTP response", ex);
                             }
                         }
                     }.execute();
                 } catch (Exception ex) {
-                    api.logging().logToOutput(Init.PREF + Init.DSB + "Exception: " + ex.getMessage());
+                    api.logging().logToOutput(Init.DSB + "exception: " + ex.getMessage());
                 }
             });
 
@@ -790,8 +812,9 @@ public class Core implements DataReceiver {
             Linker.addConnection(previousFrame, frame);
         }
 
-        public void SolverTask(String name, int x, int y, JInternalFrame previousFrame) {
-            JInternalFrame frame = SwingUtils.suiteFrame(name, x, y, (int) (WIDTH * SCALE), (int) (HEIGHT * SCALE));
+        private void SolverTask(String name, int x, int y, JInternalFrame previousFrame) {
+            SwingUtils swingUtils = new SwingUtils();
+            JInternalFrame frame = swingUtils.suiteFrame(name, x, y, (int) (WIDTH * SCALE), (int) (HEIGHT * SCALE));
             frame.setMaximizable(false);
             Linker.СhainTaskList.add(frame);
             JTabbedPane tabbedPanel = new JTabbedPane();
@@ -886,11 +909,12 @@ public class Core implements DataReceiver {
             panel.add(component, gbc);
         }
 
-        public void SpooferTask(String name, int x, int y) {
+        private void SpooferTask(String name, int x, int y) {
             if (!Linker.IsolatedTaskList.isEmpty()) {
                 return;
             }
-            JInternalFrame frame = SwingUtils.suiteFrame(name, x, y, (int) (WIDTH * SCALE), (int) (HEIGHT * SCALE));
+            SwingUtils swingUtils = new SwingUtils();
+            JInternalFrame frame = swingUtils.suiteFrame(name, x, y, (int) (WIDTH * SCALE), (int) (HEIGHT * SCALE));
             Linker.IsolatedTaskList.add(frame);
             JTabbedPane tabbedPanel = new JTabbedPane();
 
@@ -1042,7 +1066,7 @@ public class Core implements DataReceiver {
                                     .filter(connection -> connection.involves(component))
                                     .forEach(connection -> connection.setVisible(false));
                         } catch (PropertyVetoException ex) {
-                            api.logging().logToOutput("Error iconifying frame: " + ex.getMessage());
+                            api.logging().logToOutput(Init.DSB + "error iconifying frame: " + ex.getMessage());
                         }
                     }
                     frame.repaint();
@@ -1060,7 +1084,7 @@ public class Core implements DataReceiver {
                                     .filter(connection -> connection.involves(component))
                                     .forEach(connection -> connection.setVisible(true));
                         } catch (PropertyVetoException ex) {
-                            api.logging().logToOutput("Error deiconifying frame: " + ex.getMessage());
+                            api.logging().logToOutput(Init.DSB + "error deiconifying frame: " + ex.getMessage());
                         }
                     }
                     frame.repaint();
@@ -1154,7 +1178,7 @@ public class Core implements DataReceiver {
                             "/path/DevSecBox.html",
                             "req_header: req_header_value_1_line", "req_body:req_body_value_1_line",
                             "resp_header: resp_header_value_1_line",
-                            "resp_body_value_line_1_of_2\nresp_body_value_line_2_of_2" });
+                            "resp_body_value_line_1_of_2\nresp_body_value_line_2_of_2", 1 });
                     Linker.Pipe(requestData);
                 });
 

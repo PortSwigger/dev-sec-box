@@ -5,11 +5,10 @@ import burp.api.montoya.extension.ExtensionUnloadingHandler;
 import burp.api.montoya.MontoyaApi;
 
 public class Init implements BurpExtension {
-    public static String DSB = "DevSecBox ";
-    public static String PREF = "□─■ ";
+    public static String DSB = "□─■ DevSecBox ";
     public static final OS CURRENTOS = detectOS();
     private MontoyaApi api;
-    public static Core Core;
+    private Core core;
 
     @Override
     public void initialize(MontoyaApi api) {
@@ -20,22 +19,21 @@ public class Init implements BurpExtension {
         switch (CURRENTOS) {
             case MAC:
                 api.logging().logToOutput("                   ┏━━━━┓");
-                api.logging().logToOutput(PREF + "Level up with DevSec┃ for macOS https://github.com/taradaidv/");
+                api.logging().logToOutput("□─■ Level up with DevSec┃ for macOS https://github.com/taradaidv/");
                 api.logging().logToOutput("                   ┗━━━━┛");
                 break;
             case WINDOWS:
-                api.logging().logToOutput(PREF + "HuntTheBox with DevSecBox for Windows https://github.com/taradaidv/");
+                api.logging().logToOutput("□─■ HuntTheBox with DevSecBox for Windows https://github.com/taradaidv/");
                 break;
             case LINUX:
-                api.logging().logToOutput(PREF + "DevSecOps with DevSecBox for Linux https://github.com/taradaidv/");
+                api.logging().logToOutput("□─■ DevSecOps with DevSecBox for Linux https://github.com/taradaidv/");
                 break;
             default:
-                api.logging().logToOutput(PREF + "Level up with DevSecBox https://github.com/taradaidv/");
+                api.logging().logToOutput("□─■ Level up with DevSecBox https://github.com/taradaidv/");
                 break;
         }
 
-        Core = new Core(api);
-        api.logging().logToOutput(PREF + DSB + "orchestrator loaded and running");
+        core = new Core(api);
     }
 
     private static OS detectOS() {
@@ -58,8 +56,35 @@ public class Init implements BurpExtension {
     public class DSBUnloadingHandler implements ExtensionUnloadingHandler {
         @Override
         public void extensionUnloaded() {
-            Core.workflowPanel.clearAllComponents();
-            api.logging().logToOutput(PREF + DSB + "orchestrator stopped and unloaded");
+            if (api != null) {
+                api.logging().logToOutput(DSB + "API is initialized");
+            } else {
+                api.logging().logToOutput(DSB + "API is null");
+            }
+            if (core != null) {
+                api.logging().logToOutput(DSB + "core is initialized");
+            } else {
+                api.logging().logToOutput(DSB + "core is null");
+            }
+            if (core != null) {
+                try {
+                    api.logging().logToOutput(DSB + "attempting to clear workflow panel components");
+                    core.workflowPanel.clearAllComponents();
+                    api.logging().logToOutput(DSB + "workflow panel components cleared successfully");
+                } catch (Exception e) {
+                    api.logging()
+                            .logToError(DSB + "error clearing workflow panel components: " + e.getMessage());
+                    e.printStackTrace();
+                }
+                core = null;
+                api.logging().logToOutput(DSB + "core reference set to null");
+            }
+
+            if (core == null) {
+                api.logging().logToOutput(DSB + "orchestrator stopped and unloaded successfully");
+            } else {
+                api.logging().logToError(DSB + "failed to unload orchestrator, core is not null");
+            }
         }
     }
 }

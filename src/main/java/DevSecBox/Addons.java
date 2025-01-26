@@ -58,16 +58,18 @@ class Issue {
     public static AuditIssueConfidence DEFAULT_CONFIDENCE = AuditIssueConfidence.CERTAIN;
 
     private static MontoyaApi api;
+    private static Core core;
 
-    public static void setApi(MontoyaApi MontoyaApi) {
+    public static void setApi(MontoyaApi MontoyaApi, Core Core) {
         api = MontoyaApi;
+        core = Core;
     }
 
     public static void liveIssueON() {
         if (!liveIssue) {
             Issue.liveIssue = true;
             new Issue.Audit();
-            api.logging().logToOutput(Init.PREF + Init.DSB + "Live Audit has been loaded.");
+            api.logging().logToOutput(Init.DSB + "Live Audit has been loaded.");
         }
 
     }
@@ -90,9 +92,9 @@ class Issue {
                 solverFrame.dispose();
             }
 
-            Init.Core.workflowPanel.revalidate();
-            Init.Core.workflowPanel.repaint();
-            api.logging().logToOutput(Init.PREF + Init.DSB + "Live Audit has been unloaded.");
+            core.workflowPanel.revalidate();
+            core.workflowPanel.repaint();
+            api.logging().logToOutput(Init.DSB + "Live Audit has been unloaded.");
         }
 
     }
@@ -102,6 +104,7 @@ class Issue {
         private static final ConcurrentMap<Integer, CompletableFuture<SolverData>> requestContextMap = new ConcurrentHashMap<>();
         private static final AtomicInteger requestIdCounter = new AtomicInteger(1);
         private static final int MAX_REQUEST_ID = Integer.MAX_VALUE - 1;
+
         public Audit() {
             registration = api.scanner().registerScanCheck(this);
         }
@@ -164,7 +167,7 @@ class Issue {
 
         private static String determinePrefix() {
             StringBuilder activePlaceholders = new StringBuilder();
-            for (Map.Entry<String, Boolean> buttonState : Init.Core.globalButtonState.getButtonStateMap().entrySet()) {
+            for (Map.Entry<String, Boolean> buttonState : Core.globalButtonState.getButtonStateMap().entrySet()) {
                 if (buttonState.getValue()) {
                     activePlaceholders.append(buttonState.getKey()).append(" ");
                 }
@@ -233,7 +236,7 @@ class Issue {
                         future.complete(solverData);
                     } else {
                         api.logging()
-                                .logToError(Init.PREF + Init.DSB + "no matching solverIssue: " + DataObj);
+                                .logToError(Init.DSB + "no matching solverIssue: " + DataObj);
                     }
                 }
             });
@@ -759,9 +762,11 @@ class Linker {
     public static String[] WORKFLOWS = { "Live Workflow", "Manual Workflow" };
 
     private static MontoyaApi api;
+    private static Core core;
 
-    public static void setApi(MontoyaApi MontoyaApi) {
+    public static void setApi(MontoyaApi MontoyaApi, Core Core) {
         api = MontoyaApi;
+        core = Core;
     }
 
     public Linker(String identifier, String replacement) {
@@ -865,8 +870,8 @@ class Linker {
         }
 
         Linker.connections.add(new Linker.Connection(newFrom, to));
-        Init.Core.workflowPanel.revalidate();
-        Init.Core.workflowPanel.repaint();
+        core.workflowPanel.revalidate();
+        core.workflowPanel.repaint();
         return newFrom;
     }
 
@@ -917,7 +922,7 @@ class Linker {
 
     public static void removeConnections(JInternalFrame frame) {
         Linker.frameListenerMap.remove(frame);
-        Init.Core.workflowPanel.g2dLayer.remove(frame);
+        core.workflowPanel.g2dLayer.remove(frame);
         if (Linker.isSpooferTask(frame)) {
             Linker.IsolatedTaskList.remove(frame);
             Linker.connections.removeIf(connection -> connection.getFrom().equals(frame)
@@ -939,19 +944,20 @@ class Linker {
             Linker.frameProcessMap.remove(frame);
             int currentIndex = Linker.СhainTaskList.indexOf(frame);
             if (currentIndex == 1) {
-                Init.Core.globalButtonState.deactivateAllButtons();
+                Core.globalButtonState.deactivateAllButtons();
             }
             if (currentIndex == 0) {
-                Init.Core.workflowPanel.clearAllComponents();
-                Init.Core.workflowPanel.initUI(api.userInterface());
+                core.workflowPanel.clearAllComponents();
+                core.workflowPanel.initUI(api.userInterface(), core);
+                new Core(api);
             }
             Linker.СhainTaskList.remove(frame);
             Issue.liveIssueOFF();
         }
 
         connections.removeIf(connection -> connection.getTo().equals(frame));
-        Init.Core.workflowPanel.revalidate();
-        Init.Core.workflowPanel.repaint();
+        core.workflowPanel.revalidate();
+        core.workflowPanel.repaint();
         frame.dispose();
     }
 
@@ -1126,7 +1132,7 @@ class Linker {
                     acquired = processSemaphore.tryAcquire(Linker.acquireTime, TimeUnit.SECONDS);
                     if (!acquired) {
                         api.logging().logToOutput(
-                                Init.PREF + Init.DSB + "timeout acquire semaphore. infectionping execution.");
+                                Init.DSB + "timeout acquire semaphore. infectionping execution.");
                         return null;
                     }
 
@@ -1151,7 +1157,7 @@ class Linker {
                             String truncatedCommand = command.length() > 100 ? command.substring(0, 100) + " ..."
                                     : command;
                             api.logging().logToOutput(
-                                    Init.PREF + Init.DSB + "process \"" + truncatedCommand
+                                    Init.DSB + "process \"" + truncatedCommand
                                             + "\" terminated due to timeout.");
                             return null;
                         }
@@ -1178,7 +1184,7 @@ class Linker {
                 } catch (IOException ex) {
                     ClearNext(null, nextFrame, DataObj);
                     api.logging().logToError(
-                            Init.PREF + Init.DSB + "error executing command: " + ex.getMessage());
+                            Init.DSB + "error executing command: " + ex.getMessage());
                 } finally {
                     if (acquired) {
                         processSemaphore.release();
