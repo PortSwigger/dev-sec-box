@@ -90,7 +90,7 @@ public class Core implements DataReceiver {
                 if (backgroundImage != null) {
                     int panelWidth = getWidth();
                     int panelHeight = getHeight();
-                    double scale = Math.min(panelWidth, panelHeight) * 0.4
+                    double scale = Math.min(panelWidth, panelHeight) * 0.5
                             / Math.min(backgroundImage.getWidth(), backgroundImage.getHeight());
 
                     int newWidth = (int) (backgroundImage.getWidth() * scale);
