@@ -33,8 +33,6 @@ import javax.swing.plaf.basic.BasicInternalFrameTitlePane;
 import javax.swing.plaf.basic.BasicInternalFrameUI;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.undo.UndoManager;
-
-import DevSecBox.Issue.Audit;
 import burp.api.montoya.MontoyaApi;
 
 interface DataReceiver {
@@ -116,13 +114,21 @@ public class Core implements DataReceiver {
             liveSwitch.setSelected(state);
         }
 
+        public class ApiFactory {
+            private static Hook hook;
 
+            public static void initialize(MontoyaApi api) {
+                if (hook == null) {
+                    Linker.setApi(api);
+                    Issue.setApi(api);
+                    hook = new Hook(api);
+                    api.http().registerHttpHandler(hook);
+                }
+            }
+        }
 
         public void initUI(UserInterface userInterface) {
-            Linker.setApi(api);
-            Issue.setApi(api);
-            Audit.setApi(api);
-            api.http().registerHttpHandler(new Hook(api));
+            ApiFactory.initialize(api);
             this.setLayout(new BorderLayout());
             this.addMouseListener(new MouseAdapter() {
                 @Override

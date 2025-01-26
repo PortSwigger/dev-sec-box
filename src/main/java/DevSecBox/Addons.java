@@ -102,13 +102,6 @@ class Issue {
         private static final ConcurrentMap<Integer, CompletableFuture<SolverData>> requestContextMap = new ConcurrentHashMap<>();
         private static final AtomicInteger requestIdCounter = new AtomicInteger(1);
         private static final int MAX_REQUEST_ID = Integer.MAX_VALUE - 1;
-
-        private static MontoyaApi api;
-
-        public static void setApi(MontoyaApi MontoyaApi) {
-            api = MontoyaApi;
-        }
-
         public Audit() {
             registration = api.scanner().registerScanCheck(this);
         }
