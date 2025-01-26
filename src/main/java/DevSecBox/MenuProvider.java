@@ -36,7 +36,7 @@ public class MenuProvider implements ContextMenuItemsProvider {
                         requestResponse.response().body()
                     });
                 }
-                Init.Core.WorkflowPanel.setLiveSwitchState(false);
+                Init.Core.workflowPanel.setLiveSwitchState(false);
                 Init.Core.offlineReceiver(requestResponseData);
             });
             menuItemList.add(retrieveRequestResponseItem);

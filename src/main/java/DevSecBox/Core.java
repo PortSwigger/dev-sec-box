@@ -5,6 +5,7 @@ import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import burp.api.montoya.scanner.audit.issues.AuditIssueConfidence;
 import burp.api.montoya.scanner.audit.issues.AuditIssueSeverity;
+import burp.api.montoya.ui.UserInterface;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ComponentAdapter;
@@ -14,6 +15,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.image.BufferedImage;
+import java.beans.PropertyVetoException;
 import java.io.InputStream;
 import java.io.IOException;
 import java.net.URI;
@@ -32,29 +34,29 @@ import javax.swing.plaf.basic.BasicInternalFrameUI;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.undo.UndoManager;
 
+import DevSecBox.Issue.Audit;
+import burp.api.montoya.MontoyaApi;
+
 interface DataReceiver {
     void onlineReceiver(List<Object[]> requestResponseData);
 }
 
 public class Core implements DataReceiver {
-    public final WorkflowPanel WorkflowPanel = new WorkflowPanel();
+    private final MontoyaApi api;
+    public final WorkflowPanel workflowPanel = new WorkflowPanel();
     public final ButtonState globalButtonState = new ButtonState();
 
-    public Core() {
-        SwingUtilities.invokeLater(() -> {
-            Init.api.userInterface().registerSuiteTab("DevSecBox", WorkflowPanel);
-            Init.api.userInterface().registerContextMenuItemsProvider(new MenuProvider());
-            Init.api.logging().logToOutput(Init.PREF + Init.DSB + "orchestrator loaded - " + Linker.WORKFLOWS[1]);
-        });
-    }
-
-    interface ColumnStateListener {
-        void onColumnStateChanged(boolean[] columnStates);
+    public Core(MontoyaApi api) {
+        this.api = api;
+        api.userInterface().registerSuiteTab("DevSecBox", workflowPanel);
+        api.userInterface().registerContextMenuItemsProvider(new MenuProvider());
+        workflowPanel.initUI(api.userInterface());
+        api.logging().logToOutput(Init.PREF + Init.DSB + "orchestrator loaded - " + Linker.WORKFLOWS[1]);
     }
 
     @Override
     public void onlineReceiver(List<Object[]> requestResponseData) {
-        if (WorkflowPanel.liveSwitch.isSelected()) {
+        if (workflowPanel.liveSwitch.isSelected()) {
             Linker.Pipe(requestResponseData);
         }
     }
@@ -70,41 +72,59 @@ public class Core implements DataReceiver {
         private double CROP = 2.8;
         private static final int WIDTH = 250;
         private static final int HEIGHT = 200;
-        private final int MINSIZE = 80;
+        private static final int MINSIZE = 80;
         private JButton zoomIn;
         private JButton zoomOut;
-        public JLayeredPane g2dLayer;
-        private JPanel uiPanel;
         private JToggleButton liveSwitch;
         private Point initialClick;
         private boolean dragging = false;
+        private JDesktopPane desktopPane = new JDesktopPane();
+        public JDesktopPane g2dLayer = new JDesktopPane() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                for (Linker.Connection connection : Linker.connections) {
+                    Linker.draw(g2d, connection);
+                }
+                if (backgroundImage != null) {
+                    int panelWidth = getWidth();
+                    int panelHeight = getHeight();
+                    double scale = Math.min(panelWidth, panelHeight) * 0.4
+                            / Math.min(backgroundImage.getWidth(), backgroundImage.getHeight());
+
+                    int newWidth = (int) (backgroundImage.getWidth() * scale);
+                    int newHeight = (int) (backgroundImage.getHeight() * scale);
+
+                    int x = (panelWidth - newWidth) / 2;
+                    int y = (panelHeight - newHeight) / 2;
+
+                    g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                            RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                    g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                    g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2d.drawImage(backgroundImage, x, y, newWidth, newHeight, this);
+
+                    for (Linker.Connection connection : Linker.connections) {
+                        Linker.draw(g2d, connection);
+                    }
+                }
+            }
+        };
 
         public void setLiveSwitchState(boolean state) {
             liveSwitch.setSelected(state);
         }
 
-        public Map<String, String> getReplacements() {
-            return Linker.spoofMap;
-        }
 
-        public WorkflowPanel() {
-            initUI();
-        }
 
-        public void initUI() {
+        public void initUI(UserInterface userInterface) {
+            Linker.setApi(api);
+            Issue.setApi(api);
+            Audit.setApi(api);
+            api.http().registerHttpHandler(new Hook(api));
             this.setLayout(new BorderLayout());
-            this.g2dLayer = new JLayeredPane() {
-                @Override
-                protected void paintComponent(Graphics g) {
-                    super.paintComponent(g);
-                    Graphics2D g2d = (Graphics2D) g;
-                    for (Linker.Connection connection : Linker.connections) {
-                        Linker.draw(g2d, connection);
-                    }
-                }
-            };
-
-            g2dLayer.addMouseListener(new MouseAdapter() {
+            this.addMouseListener(new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent e) {
                     if (SwingUtilities.isLeftMouseButton(e)) {
@@ -121,7 +141,7 @@ public class Core implements DataReceiver {
                 }
             });
 
-            g2dLayer.addMouseMotionListener(new MouseAdapter() {
+            this.addMouseMotionListener(new MouseAdapter() {
                 @Override
                 public void mouseDragged(MouseEvent e) {
                     if (dragging) {
@@ -138,9 +158,9 @@ public class Core implements DataReceiver {
                         g2dLayer.repaint();
                     }
                 }
+
             });
 
-            uiPanel = new JPanel();
             zoomIn = new JButton("+");
             zoomOut = new JButton("-");
             zoomIn.addActionListener(e -> {
@@ -157,7 +177,6 @@ public class Core implements DataReceiver {
 
             zoomIn.setVisible(false);
             zoomOut.setVisible(false);
-
             backgroundImage = loadAndRender();
             liveSwitch = new JToggleButton("Live Workflow");
             liveSwitch.addItemListener(e -> {
@@ -168,8 +187,9 @@ public class Core implements DataReceiver {
                 if (liveSwitch.isSelected()) {
                     if (Linker.СhainTaskList.isEmpty()) {
                         triggerTask(100, 100);
+                    } else {
+                        Linker.СhainTaskList.get(0).setTitle(Linker.WORKFLOWS[0]);
                     }
-                    Linker.СhainTaskList.get(0).setTitle(Linker.WORKFLOWS[0]);
                 } else {
                     if (Linker.СhainTaskList.isEmpty()) {
                         triggerTask(100, 100);
@@ -179,10 +199,20 @@ public class Core implements DataReceiver {
                 }
             });
 
-            uiPanel.add(zoomIn);
-            uiPanel.add(liveSwitch);
-            uiPanel.add(zoomOut);
-            this.add(uiPanel, BorderLayout.SOUTH);
+            JPanel bottomPanel = new JPanel(new BorderLayout());
+
+            JPanel leftButtonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+            leftButtonPanel.add(liveSwitch);
+
+            JPanel rightButtonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
+            rightButtonPanel.add(zoomIn);
+            rightButtonPanel.add(zoomOut);
+
+            bottomPanel.add(leftButtonPanel, BorderLayout.WEST);
+            bottomPanel.add(rightButtonPanel, BorderLayout.EAST);
+
+            this.add(bottomPanel, BorderLayout.SOUTH);
+            this.add(desktopPane, BorderLayout.CENTER);
             this.add(g2dLayer, BorderLayout.CENTER);
             revalidate();
             repaint();
@@ -196,33 +226,6 @@ public class Core implements DataReceiver {
             } catch (IOException e) {
             }
             return null;
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-            if (backgroundImage != null) {
-                int panelWidth = getWidth();
-                int panelHeight = getHeight();
-                double scale = Math.min(panelWidth, panelHeight) * 0.4
-                        / Math.min(backgroundImage.getWidth(), backgroundImage.getHeight());
-
-                int newWidth = (int) (backgroundImage.getWidth() * scale);
-                int newHeight = (int) (backgroundImage.getHeight() * scale);
-
-                int x = (panelWidth - newWidth) / 2;
-                int y = (panelHeight - newHeight) / 2;
-
-                Graphics2D g2d = (Graphics2D) g;
-                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2d.drawImage(backgroundImage, x, y, newWidth, newHeight, this);
-
-                for (Linker.Connection connection : Linker.connections) {
-                    Linker.draw(g2d, connection);
-                }
-            }
         }
 
         public void clearAllComponents() {
@@ -242,7 +245,7 @@ public class Core implements DataReceiver {
             for (MouseMotionListener listener : getMouseMotionListeners()) {
                 removeMouseMotionListener(listener);
             }
-            uiPanel.removeAll();
+            desktopPane.removeAll();
             zoomOut.setEnabled(true);
             removeAll();
         }
@@ -289,8 +292,8 @@ public class Core implements DataReceiver {
         }
 
         public class SwingUtils {
-            public static JInternalFrame suiteFrame(String name, int x, int y, int width, int height) {
-                JInternalFrame frame = new JInternalFrame(name, false, true, true, false) {
+            public static JInternalFrame suiteFrame(String title, int x, int y, int width, int height) {
+                JInternalFrame frame = new JInternalFrame(title, false, true, true, true) {
                     @Override
                     public void setFrameIcon(Icon icon) {
                     }
@@ -318,7 +321,7 @@ public class Core implements DataReceiver {
                         }
                     });
                 }
-                Init.Core.WorkflowPanel.frameAction(frame);
+                Init.Core.workflowPanel.frameAction(frame);
 
                 return frame;
             }
@@ -486,7 +489,7 @@ public class Core implements DataReceiver {
                 tabbedPanel.addTab("booster", settingsPanel);
                 tabbedPanel.addTab("notes", notesPanel);
                 frame.getContentPane().add(tabbedPanel);
-                g2dLayer.add(frame, JLayeredPane.DEFAULT_LAYER);
+                g2dLayer.add(frame, JDesktopPane.DEFAULT_LAYER);
                 globalButtonState.updateStates();
                 Hook.Start();
             });
@@ -636,7 +639,7 @@ public class Core implements DataReceiver {
             tabbedPanel.addTab("out", outPanel);
             tabbedPanel.addTab("notes", notesPanel);
             frame.getContentPane().add(tabbedPanel);
-            g2dLayer.add(frame, JLayeredPane.DEFAULT_LAYER);
+            g2dLayer.add(frame, JDesktopPane.DEFAULT_LAYER);
             Linker.addConnection(fromFrame, frame);
             Linker.catcherListener(frame, inArea, outArea, defenderArea, actualStateManager);
             actualStateManager.updateStates();
@@ -744,7 +747,7 @@ public class Core implements DataReceiver {
                     }
 
                     String requestText = requestBuilder.toString();
-                    Init.api.logging().logToOutput(Init.PREF + Init.DSB + "Request Text: " + requestText);
+                    api.logging().logToOutput(Init.PREF + Init.DSB + "Request Text: " + requestText);
 
                     new SwingWorker<HttpRequestResponse, Void>() {
                         @Override
@@ -752,7 +755,7 @@ public class Core implements DataReceiver {
                             boolean isSecure = uri.getScheme().equals("https");
                             HttpService httpService = HttpService.httpService(host, port, isSecure);
                             HttpRequest httpRequest = HttpRequest.httpRequest(httpService, requestText);
-                            return Init.api.http().sendRequest(httpRequest);
+                            return api.http().sendRequest(httpRequest);
                         }
 
                         @Override
@@ -772,12 +775,12 @@ public class Core implements DataReceiver {
                         }
                     }.execute();
                 } catch (Exception ex) {
-                    Init.api.logging().logToOutput(Init.PREF + Init.DSB + "Exception: " + ex.getMessage());
+                    api.logging().logToOutput(Init.PREF + Init.DSB + "Exception: " + ex.getMessage());
                 }
             });
 
             frame.getContentPane().add(tabbedPanel);
-            g2dLayer.add(frame, JLayeredPane.DEFAULT_LAYER);
+            g2dLayer.add(frame, JDesktopPane.DEFAULT_LAYER);
             Linker.addConnection(previousFrame, frame);
         }
 
@@ -862,7 +865,7 @@ public class Core implements DataReceiver {
             tabbedPanel.addTab("example", jsonPanel);
 
             frame.getContentPane().add(tabbedPanel);
-            g2dLayer.add(frame, JLayeredPane.DEFAULT_LAYER);
+            g2dLayer.add(frame, JDesktopPane.DEFAULT_LAYER);
             Linker.addConnection(previousFrame, frame);
             Issue.Audit.jsonListener(frame);
             revalidate();
@@ -964,7 +967,7 @@ public class Core implements DataReceiver {
             tabbedPanel.addTab("notes", notesPanel);
 
             frame.getContentPane().add(tabbedPanel);
-            g2dLayer.add(frame, JLayeredPane.DEFAULT_LAYER);
+            g2dLayer.add(frame, JDesktopPane.DEFAULT_LAYER);
             Linker.addConnection(Linker.СhainTaskList.get(0), frame);
             frame.addInternalFrameListener(new InternalFrameAdapter() {
                 @Override
@@ -1019,6 +1022,42 @@ public class Core implements DataReceiver {
                             }
                         }
                     }
+                }
+
+                @Override
+                public void internalFrameIconified(InternalFrameEvent e) {
+                    int index = Linker.СhainTaskList.indexOf(frame);
+                    List<JInternalFrame> framesToHide = new ArrayList<>(
+                            Linker.СhainTaskList.subList(0, index));
+                    for (JInternalFrame component : framesToHide) {
+                        try {
+                            component.setIcon(true);
+                            Linker.connections.stream()
+                                    .filter(connection -> connection.involves(component))
+                                    .forEach(connection -> connection.setVisible(false));
+                        } catch (PropertyVetoException ex) {
+                            api.logging().logToOutput("Error iconifying frame: " + ex.getMessage());
+                        }
+                    }
+                    frame.repaint();
+                }
+
+                @Override
+                public void internalFrameDeiconified(InternalFrameEvent e) {
+                    int index = Linker.СhainTaskList.indexOf(frame);
+                    List<JInternalFrame> framesToShow = new ArrayList<>(
+                            Linker.СhainTaskList.subList(index, Linker.СhainTaskList.size()));
+                    for (JInternalFrame component : framesToShow) {
+                        try {
+                            component.setIcon(false);
+                            Linker.connections.stream()
+                                    .filter(connection -> connection.involves(component))
+                                    .forEach(connection -> connection.setVisible(true));
+                        } catch (PropertyVetoException ex) {
+                            api.logging().logToOutput("Error deiconifying frame: " + ex.getMessage());
+                        }
+                    }
+                    frame.repaint();
                 }
             });
             frame.addComponentListener(new ComponentAdapter() {
@@ -1086,7 +1125,7 @@ public class Core implements DataReceiver {
                 popupMenu.add(catcherMenu);
                 popupMenu.add(SpooferMenu);
                 popupMenu.add(SenderMenu);
-                if (WorkflowPanel.liveSwitch.isSelected()) {
+                if (liveSwitch.isSelected()) {
                     popupMenu.add(SolverMenu);
                 }
                 if (Issue.liveIssue) {

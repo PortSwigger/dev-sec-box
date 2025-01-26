@@ -1,6 +1,5 @@
 package DevSecBox;
 
-import burp.api.montoya.BurpExtension;
 import burp.api.montoya.core.ByteArray;
 import burp.api.montoya.http.handler.HttpHandler;
 import burp.api.montoya.http.handler.HttpRequestToBeSent;
@@ -10,8 +9,9 @@ import burp.api.montoya.http.handler.ResponseReceivedAction;
 import burp.api.montoya.http.message.HttpHeader;
 import burp.api.montoya.http.message.responses.HttpResponse;
 import burp.api.montoya.MontoyaApi;
-import java.io.InputStream;
+
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,26 +25,23 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
-public class Hook implements BurpExtension, HttpHandler {
+public class Hook implements HttpHandler {
+    private final MontoyaApi api;
     private final Map<Integer, Object[]> requestMap = new ConcurrentHashMap<>();
     private int currentRequestId = 1;
     private static final int MAX_REQUEST_ID = Integer.MAX_VALUE - 1;
-    private static ExecutorService executorService;
-    private Map<String, String> replacements;
-    private List<String> nonModifiableContentTypes;
+    private static final ExecutorService executorService = Executors.newFixedThreadPool(1);
+    private Map<String, String> replacements = getReplacements();
+    List<String> nonModifiableContentTypes;
     public static volatile boolean isActive = true;
 
-    public Hook() {
-        executorService = Executors.newFixedThreadPool(1);
-        this.replacements = Init.Core.WorkflowPanel.getReplacements();
+    public Hook(MontoyaApi api) {
+        this.api = api;
+        loadConfiguration();
     }
 
-    @Override
-    public void initialize(MontoyaApi api) {
-        Hook.Start();
-        Init.api.logging().logToOutput(Init.PREF + Init.DSB + "orchestrator loaded - " + Linker.WORKFLOWS[0]);
-        loadConfiguration();
-        Init.api.http().registerHttpHandler(this);
+    private Map<String, String> getReplacements() {
+        return Linker.spoofMap;
     }
 
     private void loadConfiguration() {
@@ -57,7 +54,7 @@ public class Hook implements BurpExtension, HttpHandler {
             String types = properties.getProperty("nonModifiableContentTypes", "");
             nonModifiableContentTypes = Arrays.asList(types.split(","));
         } catch (IOException ex) {
-            Init.api.logging().logToOutput(Init.PREF + Init.DSB + "default settings: " + ex.getMessage());
+            api.logging().logToOutput(Init.PREF + Init.DSB + "default settings: " + ex.getMessage());
             nonModifiableContentTypes = List.of("image/", "application/octet-stream");
         }
     }
@@ -121,8 +118,9 @@ public class Hook implements BurpExtension, HttpHandler {
                         Matcher matcher = pattern.matcher(modifiedBody);
                         modifiedBody = matcher.replaceAll(entry.getValue());
                     } catch (PatternSyntaxException e) {
-                        Init.api.logging()
-                                .logToError(Init.PREF + Init.DSB +"Invalid regex pattern: " + entry.getKey() + " - " + e.getMessage());
+                        api.logging()
+                                .logToError(Init.PREF + Init.DSB + "Invalid regex pattern: " + entry.getKey() + " - "
+                                        + e.getMessage());
                     }
                 }
 
@@ -149,17 +147,12 @@ public class Hook implements BurpExtension, HttpHandler {
             Issue.liveIssueOFF();
             Linker.processSemaphore.release();
             Linker.Scheduler.shutdownNow();
-            Init.api.logging().logToOutput(Init.PREF + Init.DSB
-                    + "hook Shutdown");
         }
     }
 
     public static void Start() {
         if (!Hook.isActive) {
             isActive = true;
-            Init.api.logging().logToOutput(Init.PREF + Init.DSB
-                    + "hook Start");
-
         }
     }
 }

@@ -44,22 +44,30 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
+import burp.api.montoya.MontoyaApi;
 
 interface DetailChangeListener {
     void onDetailChanged(String newDetail);
 }
 
 class Issue {
+
     public static boolean liveIssue;
     public static AuditIssueSeverity DEFAULT_SEVERITY = AuditIssueSeverity.INFORMATION;
     public static AuditIssueSeverity DEFAULT_TYPICAL_SEVERITY = AuditIssueSeverity.MEDIUM;
     public static AuditIssueConfidence DEFAULT_CONFIDENCE = AuditIssueConfidence.CERTAIN;
 
+    private static MontoyaApi api;
+
+    public static void setApi(MontoyaApi MontoyaApi) {
+        api = MontoyaApi;
+    }
+
     public static void liveIssueON() {
         if (!liveIssue) {
             Issue.liveIssue = true;
             new Issue.Audit();
-            Init.api.logging().logToOutput(Init.PREF + Init.DSB + "Live Audit has been loaded.");
+            api.logging().logToOutput(Init.PREF + Init.DSB + "Live Audit has been loaded.");
         }
 
     }
@@ -70,7 +78,7 @@ class Issue {
             Audit.deregister();
             Audit.requestContextMap.forEach((id, future) -> future.complete(null));
             Audit.requestContextMap.clear();
-            Audit.requestIdCounter.set(1); 
+            Audit.requestIdCounter.set(1);
 
             JInternalFrame solverFrame = Linker.СhainTaskList.stream()
                     .filter(frame -> Linker.TITLEsolver.equals(frame.getTitle()))
@@ -82,9 +90,9 @@ class Issue {
                 solverFrame.dispose();
             }
 
-            Init.Core.WorkflowPanel.revalidate();
-            Init.Core.WorkflowPanel.repaint();
-            Init.api.logging().logToOutput(Init.PREF + Init.DSB + "Live Audit has been unloaded.");
+            Init.Core.workflowPanel.revalidate();
+            Init.Core.workflowPanel.repaint();
+            api.logging().logToOutput(Init.PREF + Init.DSB + "Live Audit has been unloaded.");
         }
 
     }
@@ -95,8 +103,14 @@ class Issue {
         private static final AtomicInteger requestIdCounter = new AtomicInteger(1);
         private static final int MAX_REQUEST_ID = Integer.MAX_VALUE - 1;
 
+        private static MontoyaApi api;
+
+        public static void setApi(MontoyaApi MontoyaApi) {
+            api = MontoyaApi;
+        }
+
         public Audit() {
-            registration = Init.api.scanner().registerScanCheck(this);
+            registration = api.scanner().registerScanCheck(this);
         }
 
         public static void deregister() {
@@ -225,7 +239,7 @@ class Issue {
                     if (future != null) {
                         future.complete(solverData);
                     } else {
-                        Init.api.logging()
+                        api.logging()
                                 .logToError(Init.PREF + Init.DSB + "no matching solverIssue: " + DataObj);
                     }
                 }
@@ -751,6 +765,12 @@ class Linker {
     public static String TITLEtrigger = "Trigger";
     public static String[] WORKFLOWS = { "Live Workflow", "Manual Workflow" };
 
+    private static MontoyaApi api;
+
+    public static void setApi(MontoyaApi MontoyaApi) {
+        api = MontoyaApi;
+    }
+
     public Linker(String identifier, String replacement) {
         this.identifier = identifier;
         this.replacement = replacement;
@@ -852,8 +872,8 @@ class Linker {
         }
 
         Linker.connections.add(new Linker.Connection(newFrom, to));
-        Init.Core.WorkflowPanel.revalidate();
-        Init.Core.WorkflowPanel.repaint();
+        Init.Core.workflowPanel.revalidate();
+        Init.Core.workflowPanel.repaint();
         return newFrom;
     }
 
@@ -872,10 +892,12 @@ class Linker {
     public static class Connection {
         private JInternalFrame from;
         private JInternalFrame to;
+        private boolean visible;
 
         public Connection(JInternalFrame from, JInternalFrame to) {
             this.from = from;
             this.to = to;
+            this.visible = true;
         }
 
         public JInternalFrame getFrom() {
@@ -885,11 +907,24 @@ class Linker {
         public JInternalFrame getTo() {
             return to;
         }
+
+        public boolean involves(JInternalFrame frame) {
+            return from.equals(frame) || to.equals(frame);
+        }
+
+        public void setVisible(boolean visible) {
+            this.visible = visible;
+
+        }
+
+        public boolean isVisible() {
+            return visible;
+        }
     }
 
     public static void removeConnections(JInternalFrame frame) {
         Linker.frameListenerMap.remove(frame);
-        Init.Core.WorkflowPanel.g2dLayer.remove(frame);
+        Init.Core.workflowPanel.g2dLayer.remove(frame);
         if (Linker.isSpooferTask(frame)) {
             Linker.IsolatedTaskList.remove(frame);
             Linker.connections.removeIf(connection -> connection.getFrom().equals(frame)
@@ -914,52 +949,56 @@ class Linker {
                 Init.Core.globalButtonState.deactivateAllButtons();
             }
             if (currentIndex == 0) {
-                Init.Core.WorkflowPanel.clearAllComponents();
-                Init.Core.WorkflowPanel.initUI();
+                Init.Core.workflowPanel.clearAllComponents();
+                Init.Core.workflowPanel.initUI(api.userInterface());
             }
             Linker.СhainTaskList.remove(frame);
             Issue.liveIssueOFF();
         }
 
         connections.removeIf(connection -> connection.getTo().equals(frame));
-        Init.Core.WorkflowPanel.revalidate();
-        Init.Core.WorkflowPanel.repaint();
+        Init.Core.workflowPanel.revalidate();
+        Init.Core.workflowPanel.repaint();
         frame.dispose();
     }
 
     public static void draw(Graphics2D g2d, Linker.Connection connection) {
         JInternalFrame from = connection.getFrom();
         JInternalFrame to = connection.getTo();
+        if (!connection.isVisible()) {
+            return;
+        }
+        boolean isFirstFrameIconified = Linker.СhainTaskList.get(0).isIcon();
+        Point fromCenter = new Point(from.getX() + from.getWidth() / 2, from.getY() + from.getHeight() / 2);
+        Point toCenter = new Point(to.getX() + to.getWidth() / 2, to.getY() + to.getHeight() / 2);
+
         if (from.isVisible() && to.isVisible()) {
-            Point fromCenter = new Point(from.getX() + from.getWidth() / 2, from.getY() + from.getHeight() / 2);
-            Point toCenter = new Point(to.getX() + to.getWidth() / 2, to.getY() + to.getHeight() / 2);
-            Point fromEdge = getEdgePoint(from, fromCenter, toCenter);
             Point toEdge = getEdgePoint(to, toCenter, fromCenter);
-            double totalDistance = fromEdge.distance(toEdge);
+            double totalDistance = fromCenter.distance(toEdge);
             double shorteningFactor = LINE_SHORTENING_PIXELS / totalDistance;
-            int dx = toEdge.x - fromEdge.x;
-            int dy = toEdge.y - fromEdge.y;
+            int dx = toEdge.x - fromCenter.x;
+            int dy = toEdge.y - fromCenter.y;
+            int squareSize = 13;
             Point shortenedToEdge = new Point(
                     toEdge.x - (int) (dx * shorteningFactor),
                     toEdge.y - (int) (dy * shorteningFactor));
-
-            if (isSpooferTask(from) || isSpooferTask(to)) {
+            g2d.setStroke(
+                    new BasicStroke(3, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 0,
+                            new float[] { 0, 10 },
+                            5));
+            if (isSpooferTask(to)) {
                 g2d.setColor(Color.DARK_GRAY);
-                g2d.setStroke(
-                        new BasicStroke(3, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 0,
-                                new float[] { 0, 10 },
-                                5));
-                g2d.drawLine(fromEdge.x, fromEdge.y, shortenedToEdge.x, shortenedToEdge.y);
-                drawArrow(g2d, toEdge, fromEdge);
-                drawArrow(g2d, fromEdge, toEdge);
+                g2d.drawLine(fromCenter.x, fromCenter.y, shortenedToEdge.x, shortenedToEdge.y);
+                g2d.fillRect(fromCenter.x - squareSize / 2, fromCenter.y - squareSize / 2, squareSize, squareSize);
+                g2d.fillRect(toEdge.x - squareSize / 2, toEdge.y - squareSize / 2, squareSize, squareSize);
+
             } else {
                 g2d.setColor(Color.GRAY);
-                g2d.setStroke(
-                        new BasicStroke(3, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 0,
-                                new float[] { 0, 10 },
-                                0));
-                g2d.drawLine(fromEdge.x, fromEdge.y, shortenedToEdge.x, shortenedToEdge.y);
-                drawArrow(g2d, toEdge, fromEdge);
+                g2d.drawLine(fromCenter.x, fromCenter.y, shortenedToEdge.x, shortenedToEdge.y);
+                if (isFirstFrameIconified) {
+                    g2d.fillRect(fromCenter.x - squareSize / 2, fromCenter.y - squareSize / 2, squareSize, squareSize);
+                }
+                drawArrow(g2d, toEdge, fromCenter);
             }
         }
     }
@@ -1093,7 +1132,7 @@ class Linker {
                 try {
                     acquired = processSemaphore.tryAcquire(Linker.acquireTime, TimeUnit.SECONDS);
                     if (!acquired) {
-                        Init.api.logging().logToOutput(
+                        api.logging().logToOutput(
                                 Init.PREF + Init.DSB + "timeout acquire semaphore. infectionping execution.");
                         return null;
                     }
@@ -1118,7 +1157,7 @@ class Linker {
                             ClearNext(null, nextFrame, DataObj);
                             String truncatedCommand = command.length() > 100 ? command.substring(0, 100) + " ..."
                                     : command;
-                            Init.api.logging().logToOutput(
+                            api.logging().logToOutput(
                                     Init.PREF + Init.DSB + "process \"" + truncatedCommand
                                             + "\" terminated due to timeout.");
                             return null;
@@ -1145,7 +1184,7 @@ class Linker {
                     }
                 } catch (IOException ex) {
                     ClearNext(null, nextFrame, DataObj);
-                    Init.api.logging().logToError(
+                    api.logging().logToError(
                             Init.PREF + Init.DSB + "error executing command: " + ex.getMessage());
                 } finally {
                     if (acquired) {
