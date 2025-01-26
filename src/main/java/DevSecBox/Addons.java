@@ -44,22 +44,30 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
+import burp.api.montoya.MontoyaApi;
 
 interface DetailChangeListener {
     void onDetailChanged(String newDetail);
 }
 
 class Issue {
+
     public static boolean liveIssue;
     public static AuditIssueSeverity DEFAULT_SEVERITY = AuditIssueSeverity.INFORMATION;
     public static AuditIssueSeverity DEFAULT_TYPICAL_SEVERITY = AuditIssueSeverity.MEDIUM;
     public static AuditIssueConfidence DEFAULT_CONFIDENCE = AuditIssueConfidence.CERTAIN;
 
+    private static MontoyaApi api;
+
+    public static void setApi(MontoyaApi MontoyaApi) {
+        api = MontoyaApi;
+    }
+
     public static void liveIssueON() {
         if (!liveIssue) {
             Issue.liveIssue = true;
             new Issue.Audit();
-            Init.api.logging().logToOutput(Init.PREF + Init.DSB + "Live Audit has been loaded.");
+            api.logging().logToOutput(Init.PREF + Init.DSB + "Live Audit has been loaded.");
         }
 
     }
@@ -82,9 +90,9 @@ class Issue {
                 solverFrame.dispose();
             }
 
-            Init.Core.WorkflowPanel.revalidate();
-            Init.Core.WorkflowPanel.repaint();
-            Init.api.logging().logToOutput(Init.PREF + Init.DSB + "Live Audit has been unloaded.");
+            Init.Core.workflowPanel.revalidate();
+            Init.Core.workflowPanel.repaint();
+            api.logging().logToOutput(Init.PREF + Init.DSB + "Live Audit has been unloaded.");
         }
 
     }
@@ -95,8 +103,14 @@ class Issue {
         private static final AtomicInteger requestIdCounter = new AtomicInteger(1);
         private static final int MAX_REQUEST_ID = Integer.MAX_VALUE - 1;
 
+        private static MontoyaApi api;
+
+        public static void setApi(MontoyaApi MontoyaApi) {
+            api = MontoyaApi;
+        }
+
         public Audit() {
-            registration = Init.api.scanner().registerScanCheck(this);
+            registration = api.scanner().registerScanCheck(this);
         }
 
         public static void deregister() {
@@ -225,7 +239,7 @@ class Issue {
                     if (future != null) {
                         future.complete(solverData);
                     } else {
-                        Init.api.logging()
+                        api.logging()
                                 .logToError(Init.PREF + Init.DSB + "no matching solverIssue: " + DataObj);
                     }
                 }
@@ -751,6 +765,12 @@ class Linker {
     public static String TITLEtrigger = "Trigger";
     public static String[] WORKFLOWS = { "Live Workflow", "Manual Workflow" };
 
+    private static MontoyaApi api;
+
+    public static void setApi(MontoyaApi MontoyaApi) {
+        api = MontoyaApi;
+    }
+
     public Linker(String identifier, String replacement) {
         this.identifier = identifier;
         this.replacement = replacement;
@@ -852,8 +872,8 @@ class Linker {
         }
 
         Linker.connections.add(new Linker.Connection(newFrom, to));
-        Init.Core.WorkflowPanel.revalidate();
-        Init.Core.WorkflowPanel.repaint();
+        Init.Core.workflowPanel.revalidate();
+        Init.Core.workflowPanel.repaint();
         return newFrom;
     }
 
@@ -904,7 +924,7 @@ class Linker {
 
     public static void removeConnections(JInternalFrame frame) {
         Linker.frameListenerMap.remove(frame);
-        Init.Core.WorkflowPanel.g2dLayer.remove(frame);
+        Init.Core.workflowPanel.g2dLayer.remove(frame);
         if (Linker.isSpooferTask(frame)) {
             Linker.IsolatedTaskList.remove(frame);
             Linker.connections.removeIf(connection -> connection.getFrom().equals(frame)
@@ -929,16 +949,16 @@ class Linker {
                 Init.Core.globalButtonState.deactivateAllButtons();
             }
             if (currentIndex == 0) {
-                Init.Core.WorkflowPanel.clearAllComponents();
-                Init.Core.WorkflowPanel.initUI(Init.api.userInterface());
+                Init.Core.workflowPanel.clearAllComponents();
+                Init.Core.workflowPanel.initUI(api.userInterface());
             }
             Linker.СhainTaskList.remove(frame);
             Issue.liveIssueOFF();
         }
 
         connections.removeIf(connection -> connection.getTo().equals(frame));
-        Init.Core.WorkflowPanel.revalidate();
-        Init.Core.WorkflowPanel.repaint();
+        Init.Core.workflowPanel.revalidate();
+        Init.Core.workflowPanel.repaint();
         frame.dispose();
     }
 
@@ -1112,7 +1132,7 @@ class Linker {
                 try {
                     acquired = processSemaphore.tryAcquire(Linker.acquireTime, TimeUnit.SECONDS);
                     if (!acquired) {
-                        Init.api.logging().logToOutput(
+                        api.logging().logToOutput(
                                 Init.PREF + Init.DSB + "timeout acquire semaphore. infectionping execution.");
                         return null;
                     }
@@ -1137,7 +1157,7 @@ class Linker {
                             ClearNext(null, nextFrame, DataObj);
                             String truncatedCommand = command.length() > 100 ? command.substring(0, 100) + " ..."
                                     : command;
-                            Init.api.logging().logToOutput(
+                            api.logging().logToOutput(
                                     Init.PREF + Init.DSB + "process \"" + truncatedCommand
                                             + "\" terminated due to timeout.");
                             return null;
@@ -1164,7 +1184,7 @@ class Linker {
                     }
                 } catch (IOException ex) {
                     ClearNext(null, nextFrame, DataObj);
-                    Init.api.logging().logToError(
+                    api.logging().logToError(
                             Init.PREF + Init.DSB + "error executing command: " + ex.getMessage());
                 } finally {
                     if (acquired) {

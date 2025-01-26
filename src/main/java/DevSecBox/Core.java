@@ -34,30 +34,29 @@ import javax.swing.plaf.basic.BasicInternalFrameUI;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.undo.UndoManager;
 
+import DevSecBox.Issue.Audit;
+import burp.api.montoya.MontoyaApi;
+
 interface DataReceiver {
     void onlineReceiver(List<Object[]> requestResponseData);
 }
 
 public class Core implements DataReceiver {
-    public final WorkflowPanel WorkflowPanel = new WorkflowPanel();
+    private final MontoyaApi api;
+    public final WorkflowPanel workflowPanel = new WorkflowPanel();
     public final ButtonState globalButtonState = new ButtonState();
 
-    public Core() {
-        SwingUtilities.invokeLater(() -> {
-            Init.api.userInterface().registerSuiteTab("DevSecBox", WorkflowPanel);
-            Init.api.userInterface().registerContextMenuItemsProvider(new MenuProvider());
-            WorkflowPanel.initUI(Init.api.userInterface());
-            Init.api.logging().logToOutput(Init.PREF + Init.DSB + "orchestrator loaded - " + Linker.WORKFLOWS[1]);
-        });
-    }
-
-    interface ColumnStateListener {
-        void onColumnStateChanged(boolean[] columnStates);
+    public Core(MontoyaApi api) {
+        this.api = api;
+        api.userInterface().registerSuiteTab("DevSecBox", workflowPanel);
+        api.userInterface().registerContextMenuItemsProvider(new MenuProvider());
+        workflowPanel.initUI(api.userInterface());
+        api.logging().logToOutput(Init.PREF + Init.DSB + "orchestrator loaded - " + Linker.WORKFLOWS[1]);
     }
 
     @Override
     public void onlineReceiver(List<Object[]> requestResponseData) {
-        if (WorkflowPanel.liveSwitch.isSelected()) {
+        if (workflowPanel.liveSwitch.isSelected()) {
             Linker.Pipe(requestResponseData);
         }
     }
@@ -117,11 +116,13 @@ public class Core implements DataReceiver {
             liveSwitch.setSelected(state);
         }
 
-        public Map<String, String> getReplacements() {
-            return Linker.spoofMap;
-        }
+
 
         public void initUI(UserInterface userInterface) {
+            Linker.setApi(api);
+            Issue.setApi(api);
+            Audit.setApi(api);
+            api.http().registerHttpHandler(new Hook(api));
             this.setLayout(new BorderLayout());
             this.addMouseListener(new MouseAdapter() {
                 @Override
@@ -186,8 +187,9 @@ public class Core implements DataReceiver {
                 if (liveSwitch.isSelected()) {
                     if (Linker.СhainTaskList.isEmpty()) {
                         triggerTask(100, 100);
+                    } else {
+                        Linker.СhainTaskList.get(0).setTitle(Linker.WORKFLOWS[0]);
                     }
-                    Linker.СhainTaskList.get(0).setTitle(Linker.WORKFLOWS[0]);
                 } else {
                     if (Linker.СhainTaskList.isEmpty()) {
                         triggerTask(100, 100);
@@ -212,7 +214,6 @@ public class Core implements DataReceiver {
             this.add(bottomPanel, BorderLayout.SOUTH);
             this.add(desktopPane, BorderLayout.CENTER);
             this.add(g2dLayer, BorderLayout.CENTER);
-            liveSwitch.doClick();
             revalidate();
             repaint();
         }
@@ -292,7 +293,7 @@ public class Core implements DataReceiver {
 
         public class SwingUtils {
             public static JInternalFrame suiteFrame(String title, int x, int y, int width, int height) {
-                JInternalFrame frame = new JInternalFrame(title, false, true, true, false) {
+                JInternalFrame frame = new JInternalFrame(title, false, true, true, true) {
                     @Override
                     public void setFrameIcon(Icon icon) {
                     }
@@ -320,7 +321,7 @@ public class Core implements DataReceiver {
                         }
                     });
                 }
-                Init.Core.WorkflowPanel.frameAction(frame);
+                Init.Core.workflowPanel.frameAction(frame);
 
                 return frame;
             }
@@ -491,8 +492,6 @@ public class Core implements DataReceiver {
                 g2dLayer.add(frame, JDesktopPane.DEFAULT_LAYER);
                 globalButtonState.updateStates();
                 Hook.Start();
-                catcherTask(Linker.TITLEcatcher, 10, 300, frame);
-                SpooferTask(Linker.TITLEspoofer, 400, 400);
             });
         }
 
@@ -748,7 +747,7 @@ public class Core implements DataReceiver {
                     }
 
                     String requestText = requestBuilder.toString();
-                    Init.api.logging().logToOutput(Init.PREF + Init.DSB + "Request Text: " + requestText);
+                    api.logging().logToOutput(Init.PREF + Init.DSB + "Request Text: " + requestText);
 
                     new SwingWorker<HttpRequestResponse, Void>() {
                         @Override
@@ -756,7 +755,7 @@ public class Core implements DataReceiver {
                             boolean isSecure = uri.getScheme().equals("https");
                             HttpService httpService = HttpService.httpService(host, port, isSecure);
                             HttpRequest httpRequest = HttpRequest.httpRequest(httpService, requestText);
-                            return Init.api.http().sendRequest(httpRequest);
+                            return api.http().sendRequest(httpRequest);
                         }
 
                         @Override
@@ -776,7 +775,7 @@ public class Core implements DataReceiver {
                         }
                     }.execute();
                 } catch (Exception ex) {
-                    Init.api.logging().logToOutput(Init.PREF + Init.DSB + "Exception: " + ex.getMessage());
+                    api.logging().logToOutput(Init.PREF + Init.DSB + "Exception: " + ex.getMessage());
                 }
             });
 
@@ -1037,7 +1036,7 @@ public class Core implements DataReceiver {
                                     .filter(connection -> connection.involves(component))
                                     .forEach(connection -> connection.setVisible(false));
                         } catch (PropertyVetoException ex) {
-                            Init.api.logging().logToOutput("Error iconifying frame: " + ex.getMessage());
+                            api.logging().logToOutput("Error iconifying frame: " + ex.getMessage());
                         }
                     }
                     frame.repaint();
@@ -1055,7 +1054,7 @@ public class Core implements DataReceiver {
                                     .filter(connection -> connection.involves(component))
                                     .forEach(connection -> connection.setVisible(true));
                         } catch (PropertyVetoException ex) {
-                            Init.api.logging().logToOutput("Error deiconifying frame: " + ex.getMessage());
+                            api.logging().logToOutput("Error deiconifying frame: " + ex.getMessage());
                         }
                     }
                     frame.repaint();
@@ -1126,7 +1125,7 @@ public class Core implements DataReceiver {
                 popupMenu.add(catcherMenu);
                 popupMenu.add(SpooferMenu);
                 popupMenu.add(SenderMenu);
-                if (WorkflowPanel.liveSwitch.isSelected()) {
+                if (liveSwitch.isSelected()) {
                     popupMenu.add(SolverMenu);
                 }
                 if (Issue.liveIssue) {

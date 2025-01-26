@@ -9,13 +9,18 @@ import burp.api.montoya.http.handler.ResponseReceivedAction;
 import burp.api.montoya.http.message.HttpHeader;
 import burp.api.montoya.http.message.responses.HttpResponse;
 import burp.api.montoya.MontoyaApi;
+
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -26,12 +31,32 @@ public class Hook implements HttpHandler {
     private int currentRequestId = 1;
     private static final int MAX_REQUEST_ID = Integer.MAX_VALUE - 1;
     private static final ExecutorService executorService = Executors.newFixedThreadPool(1);
-    private Map<String, String> replacements = Init.Core.WorkflowPanel.getReplacements();
+    private Map<String, String> replacements = getReplacements();
     List<String> nonModifiableContentTypes;
     public static volatile boolean isActive = true;
 
     public Hook(MontoyaApi api) {
         this.api = api;
+        loadConfiguration();
+    }
+
+    private Map<String, String> getReplacements() {
+        return Linker.spoofMap;
+    }
+
+    private void loadConfiguration() {
+        Properties properties = new Properties();
+        try (InputStream input = getClass().getClassLoader().getResourceAsStream("config.properties")) {
+            if (input == null) {
+                throw new IOException("pre-configured types");
+            }
+            properties.load(input);
+            String types = properties.getProperty("nonModifiableContentTypes", "");
+            nonModifiableContentTypes = Arrays.asList(types.split(","));
+        } catch (IOException ex) {
+            api.logging().logToOutput(Init.PREF + Init.DSB + "default settings: " + ex.getMessage());
+            nonModifiableContentTypes = List.of("image/", "application/octet-stream");
+        }
     }
 
     @Override
