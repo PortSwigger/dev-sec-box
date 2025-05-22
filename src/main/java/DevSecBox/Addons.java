@@ -2,6 +2,7 @@ package DevSecBox;
 
 import burp.api.montoya.core.Registration;
 import burp.api.montoya.http.message.HttpRequestResponse;
+import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.scanner.audit.insertionpoint.AuditInsertionPoint;
 import burp.api.montoya.scanner.audit.issues.AuditIssue;
 import burp.api.montoya.scanner.audit.issues.AuditIssueConfidence;
@@ -9,6 +10,7 @@ import burp.api.montoya.scanner.audit.issues.AuditIssueSeverity;
 import burp.api.montoya.scanner.AuditResult;
 import burp.api.montoya.scanner.ConsolidationAction;
 import burp.api.montoya.scanner.ScanCheck;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import java.awt.*;
@@ -44,7 +46,6 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
-import burp.api.montoya.MontoyaApi;
 
 interface DetailChangeListener {
     void onDetailChanged(String newDetail);
@@ -267,32 +268,14 @@ class Issue {
         }
 
         private static String extractValueForKey(String jsonString, String key) {
-            String searchKey = "\"" + key + "\"";
-            int keyIndex = jsonString.indexOf(searchKey);
-            if (keyIndex == -1) {
+            try {
+                ObjectMapper objectMapper = new ObjectMapper();
+                JsonNode rootNode = objectMapper.readTree(jsonString);
+                JsonNode valueNode = rootNode.path(key);
+                return valueNode.isMissingNode() ? null : valueNode.asText();
+            } catch (IOException e) {
                 return null;
             }
-
-            int colonIndex = jsonString.indexOf(":", keyIndex);
-            if (colonIndex == -1) {
-                return null;
-            }
-
-            int startQuoteIndex = jsonString.indexOf("\"", colonIndex);
-            if (startQuoteIndex == -1) {
-                return null;
-            }
-
-            int endQuoteIndex = jsonString.indexOf("\"", startQuoteIndex + 1);
-            while (endQuoteIndex != -1 && jsonString.charAt(endQuoteIndex - 1) == '\\') {
-                endQuoteIndex = jsonString.indexOf("\"", endQuoteIndex + 1);
-            }
-
-            if (endQuoteIndex == -1) {
-                return null;
-            }
-
-            return jsonString.substring(startQuoteIndex + 1, endQuoteIndex);
         }
 
     }
