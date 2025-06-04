@@ -1,0 +1,13 @@
+Uuid: 
+ExtensionType: 1
+Name: Dev Sec Box
+RepoName: dev-sec-box
+ScreenVersion: 0.2.2
+SerialVersion: 1
+MinPlatformVersion: 0
+ProOnly: False
+Author: taradaidv
+ShortDescription: DevSecBox is an extension for Burp Suite that automates security tasks and workflow management. It allows execution of scripts and code compilation directly from its environment.
+EntryPoint: ./DevSecBox-0.2.2.jar
+BuildCommand: ./gradlew jar
+SupportedProducts: Pro, Community
