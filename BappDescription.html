@@ -1,25 +1,27 @@
-<p>DevSecBox is a powerful extension that bridges the gap between security testing and DevSecOps automation. It acts as a command-line adapter for macOS, Linux, and Windows, allowing you to execute shell commands, PowerShell scripts, compiled programs, and more—all from within its integrated environment. Designed for flexibility, it enables seamless integration with tools like Docker, Kubernetes, LXC, nmap, and even AI-powered utilities. Whether you're building one-off testing scripts or orchestrating complex, multi-step workflows, DevSecBox helps you visualize and automate your processes with ease.</p>
+<p>DevSecBox is a versatile extension for orchestrating and automating security workflows in Burp Suite. It serves as a cross-platform command-line adapter, enabling execution of shell scripts, PowerShell, compiled programs, and other utilities. Through its visual interface, users can build complex workflows that combine security testing, system commands, and data transformation, integrating seamlessly with tools like Docker, Kubernetes, and nmap. With support for both live and manual modes, DevSecBox allows you to automate trigger-based logic, perform dynamic request/response processing, and generate custom outputs—all within Burp Suite.</p>
 
-<p>The extension features a drag-and-drop workflow editor, live and manual execution modes, and advanced request/response handling tools. JSON manipulation, spoofing, and automated triggers make it ideal for security testing in microservice and CI/CD environments. It also supports compliance efforts by maintaining audit trails and enforcing security policies. With DevSecBox, teams can shift security left, enabling early detection and collaboration across development, operations, and security functions.</p>
+<p>DevSecBox is ideal for DevSecOps teams, bug bounty hunters, and security engineers who need customizable, script-driven testing scenarios. From simple data filters to multi-step orchestration chains, it adapts to a wide range of use cases, including port scanning, mocking, container launching, infrastructure automation, and compliance-driven auditing.</p>
 
 <h2>Features</h2>
 
 <ul>
-  <li>Command-line integration with script and binary execution</li>
-  <li>Visual workflow builder for automation and orchestration</li>
-  <li>Live and manual modes for flexible testing</li>
-  <li>Request/response manipulation and spoofing tools</li>
-  <li>JSON data handling and validation</li>
-  <li>Audit support and policy enforcement features</li>
+  <li>Visual workflow editor with drag-and-drop interface</li>
+  <li>Live and manual execution modes for flexible testing</li>
+  <li>Trigger-based automation for running scripts and programs</li>
+  <li>Request/response manipulation and spoofing</li>
+  <li>Built-in JSON formatting and conditional processing</li>
+  <li>Cross-platform command-line integration (bash, PowerShell, etc.)</li>
+  <li>Audit output support</li>
 </ul>
 
 <h2>Usage</h2>
 
-<ul>
-  <li>Launch DevSecBox and design your workflow using the visual editor.</li>
-  <li>Select between 'Live' or 'Manual' mode depending on your testing context.</li>
-  <li>Define triggers and associate them with commands, scripts, or programs using the built-in command adapter.</li>
-  <li>Use request/response tools to capture, modify, or spoof traffic for in-depth testing scenarios.</li>
-  <li>Integrate JSON processing tasks to handle API responses or configuration files.</li>
-  <li>Review results, generate insights, and share them with relevant teams to support secure development practices.</li>
-</ul>
+<ol>
+  <li>Start by designing a workflow using the drag-and-drop editor. Define a <code class="InlineCode">Trigger</code> that captures data from the Proxy or Logger context menu.</li>
+  <li>Right-click inside the DevSecBox panel to add a processing component (called a <code class="InlineCode">Catcher</code>), which will handle and manipulate incoming data from the trigger.</li>
+  <li>Write your logic directly in shell or PowerShell syntax. Use placeholder blocks which correspond to specific fields in the HTTP message.</li>
+  <li>Add subsequent <code class="InlineCode">Catchers</code> to transform the output into JSON or chain additional logic. Each Catcher receives data from the one before it.</li>
+  <li>To test the setup manually, go to the Proxy menu, right-click a request, and choose "Send to DevSecBox". You can then view input and output data in each Catcher's "OUT" tab.</li>
+  <li>Switch to Live mode for automated execution during browsing. Be aware that outputs may update too quickly to observe unless specific filters are used.</li>
+  <li>Use the extended Live audit feature to populate structured issue reports by converting output into predefined JSON vulnerability formats.</li>
+</ol>
