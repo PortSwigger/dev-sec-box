@@ -1,27 +1,29 @@
-<p>This is a versatile extension for orchestrating and automating security workflows in Burp Suite. It serves as a cross-platform command-line adapter, enabling execution of shell scripts, PowerShell, compiled programs, and other utilities. Through its visual interface, users can build complex workflows that combine security testing, system commands, and data transformation, integrating seamlessly with tools like Docker, Kubernetes, and nmap. With support for both live and manual modes, DevSecBox allows you to automate trigger-based logic, perform dynamic request/response processing, and generate custom outputs, all within Burp Suite.</p>
-
-<p>Dev Sec Box is ideal for DevSecOps teams, bug bounty hunters, and security engineers who need customizable, script-driven testing scenarios. From simple data filters to multi-step orchestration chains, it adapts to a wide range of use cases, including port scanning, mocking, container launching, infrastructure automation, and compliance-driven auditing.</p>
+<p>DevSecBox is a comprehensive workflow orchestration extension that transforms security testing by providing a visual, drag-and-drop interface for building complex automation chains. It functions as a command-line adapter, enabling execution of shell scripts, PowerShell commands, and external programs directly from HTTP traffic analysis. The extension creates dynamic workflows through interconnected components called Triggers, Catchers, Senders, Spoofers, and Solvers, allowing security professionals to automate everything from simple data transformations to multi-step vulnerability discovery processes.</p>
 
 <h2>Features</h2>
 
 <ul>
-  <li>Visual workflow editor with drag-and-drop interface</li>
-  <li>Live and manual execution modes for flexible testing</li>
-  <li>Trigger-based automation for running scripts and programs</li>
-  <li>Request/response manipulation and spoofing</li>
-  <li>Built-in JSON formatting and conditional processing</li>
-  <li>Cross-platform command-line integration (bash, PowerShell, etc.)</li>
-  <li>Audit output support</li>
+  <li>Visual workflow designer with drag-and-drop components (Triggers, Catchers, Senders, Spoofers, Solvers)</li>
+  <li>Cross-platform command execution supporting shell, PowerShell, and compiled programs</li>
+  <li>Live and manual execution modes with configurable concurrency and timeout controls</li>
+  <li>HTTP request/response manipulation with data spoofing capabilities</li>
+  <li>Comprehensive JSON processing including validation, beautification, and transformation</li>
+  <li>Automated vulnerability reporting through structured JSON issue generation</li>
+  <li>Interactive HTTP request builder and testing functionality</li>
+  <li>Configurable thread pools and semaphore-based process management</li>
+  <li>Built-in search, replace, and export capabilities for workflow data</li>
+  <li>Real-time audit integration with customizable severity and confidence levels</li>
 </ul>
 
 <h2>Usage</h2>
 
 <ol>
-  <li>Start by designing a workflow using the drag-and-drop editor. Define a <code class="InlineCode">Trigger</code> that captures data from the Proxy or Logger context menu.</li>
-  <li>Right-click inside the DevSecBox panel to add a processing component (called a <code class="InlineCode">Catcher</code>), which will handle and manipulate incoming data from the trigger.</li>
-  <li>Write your logic directly in shell or PowerShell syntax. Use placeholder blocks which correspond to specific fields in the HTTP message.</li>
-  <li>Add subsequent <code class="InlineCode">Catchers</code> to transform the output into JSON or chain additional logic. Each Catcher receives data from the one before it.</li>
-  <li>To test the setup manually, go to the Proxy menu, right-click a request, and choose "Send to DevSecBox". You can then view input and output data in each Catcher's "OUT" tab.</li>
-  <li>Switch to Live mode for automated execution during browsing. Be aware that outputs may update too quickly to observe unless specific filters are used.</li>
-  <li>Use the extended Live audit feature to populate structured issue reports by converting output into predefined JSON vulnerability formats.</li>
+  <li>Create a workflow by right-clicking in the DevSecBox panel and selecting <code class="InlineCode">Trigger</code> to establish the entry point for your automation chain.</li>
+  <li>Add <code class="InlineCode">Catcher</code> components to process incoming HTTP data, using the colored placeholder buttons to insert request/response fields into your shell commands or scripts.</li>
+  <li>Configure processing logic in each Catcher's <code class="InlineCode">in</code> tab using shell syntax, PowerShell commands, or JSON transformations, with data flowing between connected components through <code class="InlineCode">out</code> tabs.</li>
+  <li>Use the <code class="InlineCode">Sender</code> component to make custom HTTP requests based on processed data, and the <code class="InlineCode">Spoofer</code> component to replace specific content in responses.</li>
+  <li>Add a <code class="InlineCode">Solver</code> component in Live mode to automatically generate structured vulnerability reports from your workflow output using predefined JSON formats.</li>
+  <li>Test workflows manually by right-clicking requests in <code class="InlineCode">Proxy</code> history and selecting <code class="InlineCode">Send to DevSecBox</code>, or enable <code class="InlineCode">Live Workflow</code> mode for automatic processing.</li>
+  <li>Configure concurrency settings, timeouts, and thread limits using the <code class="InlineCode">booster</code> tab to optimize performance for your specific use case.</li>
+  <li>Use the context menu options for JSON import/export, search/replace functionality, and workflow testing with mock data.</li>
 </ol>
