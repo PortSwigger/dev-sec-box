@@ -3,7 +3,7 @@ ExtensionType: 1
 Name: Dev Sec Box
 RepoName: dev-sec-box
 ScreenVersion: 0.2.2
-SerialVersion: 2
+SerialVersion: 3
 MinPlatformVersion: 18
 ProOnly: True
 Author: taradaidv
