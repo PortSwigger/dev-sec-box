@@ -9,5 +9,5 @@ ProOnly: True
 Author: taradaidv
 ShortDescription: Automate security tasks and workflow management by executing scripts and compiling code directly in Burp.
 EntryPoint: DevSecBox-0.2.2.jar
-BuildCommand: ./gradlew jar
+BuildCommand: ./gradlew build
 SupportedProducts: Pro
