@@ -10,6 +10,10 @@ public class Init implements BurpExtension {
     private MontoyaApi api;
     private Core core;
 
+    public static void main(String[] args) {
+        System.out.println("DevSecBox standalone execution");
+    }
+
     @Override
     public void initialize(MontoyaApi api) {
         this.api = api;

@@ -11,7 +11,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly 'net.portswigger.burp.extensions:montoya-api:2024.12'  
+    implementation 'net.portswigger.burp.extensions:montoya-api:2024.12'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.0'
 }
 
@@ -27,7 +27,7 @@ shadowJar {
     archiveFileName.set("DevSecBox-${version}.jar")
     manifest {
         attributes(
-            'Main-Class': 'DevSecBox.Initialize'
+            'Main-Class': 'DevSecBox.Init'
         )
     }
 }
